@@ -1,0 +1,19 @@
+name: mof
+channels:
+ - defaults
+ - conda-forge
+ - https://pose:foldtree@conda.graylab.jhu.edu
+dependencies:
+ - python>=3.7
+ - pyrosetta
+ - numpy
+ - matplotlib
+ - pandas
+ - pytest
+ - pytest-faulthandler
+ - ipython
+ - tqdm
+ - yapf
+ - pytest-sugar
+ - pytest-xdist
+
