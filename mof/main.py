@@ -20,10 +20,20 @@ def main():
    # imports poses - requires a "pdbs.list" file containing paths
    raw_pdbs = read_in_pdbs()
 
-   # preps poses - makes all non-PRO (l&d) non-AIB residues into Alanines
+   r  # preps poses - makes all non-PRO (l&d) non-AIB residues into Alanines
    prepped_pdbs = prep_poses(raw_pdbs)
+
    # read FD & UN's materials info into a pandas DataFrame (df)
    df = pandas.read_csv('crystals_from_point.csv')
+   df1 = df[[sym_axis in x for x in df['sym_type_1']]]
+   df2 = df[[sym_axis in x for x in df['sym_type_2']]]
+   # this df contains only applicable crystal space groups/cage types for a given scaffold
+   df_sym = df1.append(df2)
+
+   chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
+   rts = chm.residue_type_set('fa_standard')
+   scfxn = rosetta.core.scoring.ScoreFunction()
+   scfxn.set_weight(rosetta.core.scoring.ScoreType.fa_dun, 1.0)
 
    for pdb in prepped_pdbs:
       # gets the pdb name for outputs later
@@ -37,14 +47,9 @@ def main():
       sym_num = pdb.chain(last_res)
       sym = int(sym_num)
       sym_axis = str(sym_num)
-      df1 = df[[sym_axis in x for x in df['sym_type_1']]]
-      df2 = df[[sym_axis in x for x in df['sym_type_2']]]
-      # this df contains only applicable crystal space groups/cage types for a given scaffold
-      df_sym = df1.append(df2)
 
       for residue in range(1, int(total_res / sym) + 1):
-         chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
-         rts = chm.residue_type_set('fa_standard')
+
          if pdb.residue_type(residue) == rts.name_map('ALA') or pdb.residue_type(
                residue) == rts.name_map('DALA'):
             # one residue at a time, mutate to a residue that is involved in one of
@@ -68,8 +73,6 @@ def main():
                      ROT_pose.dump_pdb('CHECK1_{}_{}_{}.pdb'.format(residue, LIG_poses[LIG_pose],
                                                                     pose_num))
 
-                  scfxn = rosetta.core.scoring.ScoreFunction()
-                  scfxn.set_weight(rosetta.core.scoring.ScoreType.fa_dun, 1.0)
                   scfxn(ROT_pose)
                   dun_score = ROT_pose.energies().residue_total_energies(residue)[
                      rosetta.core.scoring.ScoreType.fa_dun]
@@ -106,6 +109,9 @@ def main():
                   pose_num += 1
          else:
             continue
+
+if __name__ == '__main__':
+   main()
 
 ### defs ###
 def read_in_pdbs():
@@ -425,6 +431,3 @@ def output_data(pdb_name, residue, mut_res_name, pose_num, list_of_spacegroups):
    o.write("MUTATED RESIDUE ID: %s\n" % mut_res_name)
    o.write("ROTAMER NUMBER: %s\n\n" % pose_num)
    o.write("COMPATIBLE SPACEGROUP(S): \n%s\n" % list_of_spacegroups)
-
-if __name__ == '__main__':
-   main()
