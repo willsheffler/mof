@@ -1,4 +1,4 @@
-import sys, pandas, numpy as np
+import sys, pandas, numpy as np, rmsd
 
 from mof import data
 
@@ -9,13 +9,15 @@ from pyrosetta.rosetta.core.pack.rotamer_set import bb_independent_rotamers
 from pyrosetta.rosetta.core.conformation import Residue
 from pyrosetta.rosetta.core.pose import Pose
 
-import rmsd
-
-pyrosetta.init(f'-mute all -output_virtual -extra_res_fa {data.all_params_files}')
 _DEBUG = False
-leeway = 1
+LIGANDS = ['HZ3', 'DHZ3']  #, 'HZ4', 'DHZ4']
 
 def main():
+
+   # pyrosetta.init(f'-mute all -output_virtual -extra_res_fa {data.all_params_files}')
+   pyrosetta.init(f'-mute all -output_virtual -extra_res_fa {data.HZ3_params}')
+
+   leeway = 1
 
    pdb_gen = gen_pdbs(sys.argv[1])
    prepped_pdb_gen = prep_poses(pdb_gen)
@@ -60,7 +62,7 @@ def main():
             bad_rots = 0
             for ilig, LIG_pose in enumerate(LIG_poses):
 
-               LIG_pose.dump_pdb(f'LIG_pose_res{residue}_{ilig}.pdb')
+               # LIG_pose.dump_pdb(f'LIG_pose_res{residue}_{ilig}.pdb')
 
                transform(LIG_pose, [1, 0, 0])
                # gets all of the backbone independent rotamers
@@ -73,9 +75,9 @@ def main():
                      LIG_pose.residue(residue).set_chi(i, rotamer[i])
                   ROT_pose = rosetta.protocols.grafting.return_region(
                      LIG_pose, 1, LIG_pose.size())
-                  if _DEBUG:
-                     ROT_pose.dump_pdb('CHECK1_{}_{}_{}.pdb'.format(residue, LIG_poses[LIG_pose],
-                                                                    pose_num))
+
+                  # ROT_pose.dump_pdb('CHECK1_{}_{}_{}_{}.pdb'.format(residue, LIG_poses[LIG_pose],
+                  # pose_num, irot))
 
                   scfxn(ROT_pose)
                   dun_score = ROT_pose.energies().residue_total_energies(residue)[
@@ -210,16 +212,15 @@ def minimize(pose, sfxn):
       minmover.apply(pose)
 
 def mut_to_ligand(pose, residue):
-   # For a given pose, attempts to mutate each residue (one at a time) to a new residue from my list of ligands
+   # For a given pose, attempts to mutate each residue (one at a time) to a new residue from my list of LIGANDS
    # Returns a dictionary, LIG_poses, that contains all of the new poses with mutated residue positions
    # where "a" = poses, "b" = interaction residue (HZ3, HZ4, etc.)
    sfxn = rosetta.core.scoring.ScoreFunctionFactory.create_score_function('ref2015')
    LIG_poses = []
    int_residues = []
-   ligands = ['HZ3', 'DHZ3', 'HZ4', 'DHZ4']
 
-   for x in range(0, 1 + 1):
-      ligand = ligands[2 * x + 1]
+   for ilig in range(1, len(LIGANDS), 2):
+      ligand = LIGANDS[ilig]
       LIG_pose = pose.clone()
       if LIG_pose.phi(residue) > 0:
          mut = rosetta.protocols.simple_moves.MutateResidue()
