@@ -4,6 +4,10 @@
 		"selected_items":
 		[
 			[
+				"list",
+				"list_of_spacegroups"
+			],
+			[
 				"dock",
 				"dock_method"
 			],
@@ -510,32 +514,26 @@
 			[
 				"face",
 				"facecell"
-			],
-			[
-				"TEST",
-				"TEST_DILATED_INT_test_64bit"
 			]
 		]
 	},
 	"buffers":
 	[
 		{
-			"file": "mof/main.py",
+			"file": "mof.sublime-project",
 			"settings":
 			{
-				"buffer_size": 17611,
+				"buffer_size": 228,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"contents": "",
-			"file": "mof.sublime-",
-			"file_size": -1,
-			"file_write_time": -1,
+			"file": "mof/main.py",
 			"settings":
 			{
-				"buffer_size": 0,
+				"buffer_size": 17989,
+				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
@@ -545,6 +543,14 @@
 			{
 				"buffer_size": 262,
 				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "sublime_build.log",
+			"settings":
+			{
+				"buffer_size": 147,
 				"line_ending": "Unix"
 			}
 		}
@@ -560,6 +566,10 @@
 		"last_filter": "",
 		"selected_items":
 		[
+			[
+				"creari",
+				"Origami: Create Pane on the Right"
+			],
 			[
 				"desp",
 				"Origami: Destroy Current Pane"
@@ -885,10 +895,6 @@
 				"Origami: Zoom Current Pane"
 			],
 			[
-				"creari",
-				"Origami: Create Pane on the Right"
-			],
-			[
 				"createpari",
 				"Origami: Create Pane on the Right"
 			],
@@ -1084,11 +1090,15 @@
 	},
 	"expanded_folders":
 	[
-		"/home/sheffler/src/mof",
-		"/home/sheffler/src/mof/mof"
+		"/home/sheffler/src/mof"
 	],
 	"file_history":
 	[
+		"/home/sheffler/src/mof/mof/orig.py",
+		"/home/sheffler/debug/mof/MatGeoCheck/only_one.list",
+		"/home/sheffler/debug/mof/MatGeoCheck/Peptides/c3_12res_c.10.10.pdb",
+		"/home/sheffler/debug/mof/MatGeoCheck/pdbs.list",
+		"/home/sheffler/src/mof/mof.sublime-",
 		"/home/sheffler/debug/mof/MatGeoCheck/c3_21res_c.94.2_0001_5_DHZ4_1.txt",
 		"/home/sheffler/debug/mof/MatGeoCheck/successful_c3_21res_c.1.2_0001_2_DHZ4_1.pdb",
 		"/home/sheffler/debug/mof/bettur_mat_geo_check_will.py",
@@ -1211,12 +1221,7 @@
 		"/home/sheffler/src/sicdock/sicdock/bvh/bvh.hpp",
 		"/home/sheffler/src/sicdock/sicdock/util/types.hpp",
 		"/home/sheffler/src/sicdock/sicdock/util/pybind_types_test.cpp",
-		"/home/sheffler/src/sicdock/sicdock/tests/util/test_pybind_types.py",
-		"/home/sheffler/miniconda3/envs/tcdock/include/python3.7m/pybind11/pytypes.h",
-		"/home/sheffler/miniconda3/envs/tcdock/include/python3.7m/pybind11/pybind11.h",
-		"/home/sheffler/src/sicdock/sicdock/util/test_pybind_types.py",
-		"/home/sheffler/miniconda3/envs/tcdock/include/python3.7m/pybind11/numpy.h",
-		"/home/sheffler/miniconda3/envs/tcdock/include/python3.7m/pybind11/buffer_info.h"
+		"/home/sheffler/src/sicdock/sicdock/tests/util/test_pybind_types.py"
 	],
 	"find":
 	{
@@ -1234,6 +1239,21 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"util_runtests",
+			"symmet",
+			"sym",
+			"sym_num",
+			"sym_axis",
+			"pdbslist",
+			"pdblist",
+			"prepped_pdbs",
+			"pose_list",
+			"raw_pose",
+			"read_in_pdbs",
+			"prepped_pdbs",
+			"raw_pdbs",
+			"read_in_pdbs",
+			"pdbs.list",
 			"read_in",
 			"rmsd",
 			"PASSWORD",
@@ -1255,24 +1275,53 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 0,
 			"sheets":
 			[
 				{
 					"buffer": 0,
-					"file": "mof/main.py",
+					"file": "mof.sublime-project",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 17611,
+						"buffer_size": 228,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								17611,
-								17611
+								225,
+								225
+							]
+						],
+						"settings":
+						{
+							"sublime_recent_sort_is_transient": false,
+							"syntax": "Packages/JavaScript/JSON.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "mof/main.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 17989,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1559,
+								1559
 							]
 						],
 						"settings":
@@ -1283,38 +1332,10 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 7616.0,
+						"translation.y": 47.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 1,
-					"file": "mof.sublime-",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 0,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								0,
-								0
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Text/Plain text.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 0,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
@@ -1343,7 +1364,41 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 3,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 3,
+					"file": "sublime_build.log",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 147,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
 					"type": "text"
 				}
 			]
@@ -1366,11 +1421,18 @@
 				0,
 				1,
 				1
+			],
+			[
+				1,
+				0,
+				2,
+				1
 			]
 		],
 		"cols":
 		[
 			0.0,
+			0.5,
 			1.0
 		],
 		"rows":
@@ -1382,13 +1444,13 @@
 	"menu_visible": true,
 	"output.exec":
 	{
-		"height": 30.0
+		"height": 33.0
 	},
 	"output.find_results":
 	{
 		"height": 0.0
 	},
-	"pinned_build_system": "test_plug_from_olig",
+	"pinned_build_system": "run_main_one",
 	"project": "mof.sublime-project",
 	"replace":
 	{
@@ -1934,7 +1996,7 @@
 		],
 		"width": 0.0
 	},
-	"selected_group": 0,
+	"selected_group": 1,
 	"settings":
 	{
 	},
