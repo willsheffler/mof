@@ -1,4 +1,4 @@
-import sys, pandas, numpy as np, rmsd
+import sys, pandas, numpy as np, rmsd, rpxdock as rp, rpxdock.homog as hm, xarray as xr
 
 from mof import data
 
@@ -10,12 +10,15 @@ from pyrosetta.rosetta.core.conformation import Residue
 from pyrosetta.rosetta.core.pose import Pose
 
 _DEBUG = False
-LIGANDS = ['HZ3', 'DHZ3']  #, 'HZ4', 'DHZ4']
+# LIGANDS = ['HZ3', 'DHZ3']  #, 'HZ4', 'DHZ4']
+LIGANDS = ['HZ4', 'DHZ4']
+sym_of_ligand = dict(HZ3='D2', DHZ3='D2', HZ4='C4', DHZ4='C4')
+pyros_flags = f'-mute all -output_virtual -extra_res_fa {data.HZ4_params}'
 
 def main():
 
    # pyrosetta.init(f'-mute all -output_virtual -extra_res_fa {data.all_params_files}')
-   pyrosetta.init(f'-mute all -output_virtual -extra_res_fa {data.HZ3_params}')
+   pyrosetta.init(pyros_flags)
 
    leeway = 1
 
@@ -23,7 +26,7 @@ def main():
    prepped_pdb_gen = prep_poses(pdb_gen)
 
    # read FD & UN's materials info into a pandas DataFrame (df)
-   df = pandas.read_csv(data.frank_space_groups)
+   df = get_xtal_info()
 
    chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
    rts = chm.residue_type_set('fa_standard')
@@ -44,12 +47,7 @@ def main():
          print('bad pdb', p_n)
          continue
       sym = int(sym_num)
-      sym_name = "C%i" % sym_num
-      df1 = df[sym_name == df['sym_type_1']]
-      df2 = df[sym_name == df['sym_type_2']]
-      # this df contains only applicable crystal space groups/cage types for a given scaffold
-      df_sym = df1.append(df2)
-      assert len(df_sym) > 0
+      peptide_sym = "C%i" % sym_num
 
       for residue in range(1, int(total_res / sym) + 1):
 
@@ -61,8 +59,14 @@ def main():
             LIG_poses = mut_to_ligand(pdb, residue)
             bad_rots = 0
             for ilig, LIG_pose in enumerate(LIG_poses):
+               mut_res_name, lig_sym = LIG_poses[LIG_pose]
 
-               # LIG_pose.dump_pdb(f'LIG_pose_res{residue}_{ilig}.pdb')
+               # this df contains only applicable crystal space groups/cage types
+               # for a given scaffold (* is and, + is or... stupid numpy)
+               symmatch = (((peptide_sym == df['sym_type_1']) * (lig_sym == df['sym_type_2'])) +
+                           ((peptide_sym == df['sym_type_2']) * (lig_sym == df['sym_type_1'])))
+               assert np.sum(symmatch) > 0
+               df_sym = df.isel(spacegroup=symmatch)
 
                transform(LIG_pose, [1, 0, 0])
                # gets all of the backbone independent rotamers
@@ -79,18 +83,13 @@ def main():
                   # ROT_pose.dump_pdb('CHECK1_{}_{}_{}_{}.pdb'.format(residue, LIG_poses[LIG_pose],
                   # pose_num, irot))
 
+                  # scores the mutated residue's fa_dun to only get "good" rotamers (bb_dependent)
                   scfxn(ROT_pose)
                   dun_score = ROT_pose.energies().residue_total_energies(residue)[
                      rosetta.core.scoring.ScoreType.fa_dun]
-
-                  # scores the mutated residue's fa_dun to only get "good" rotamers (bb_dependent)
                   if dun_score >= 3:
                      bad_rots += 1
                      continue
-
-                  if _DEBUG:
-                     ROT_pose.dump_pdb('CHECK2_{}_{}_{}.pdb'.format(residue, LIG_poses[LIG_pose],
-                                                                    pose_num))
 
                   # if this dihedral is compatible with any of the spacegroups in the dataframe (df)
                   # based on its calculated_dihedral and a pre-set "leeway" value I've set above,
@@ -103,23 +102,101 @@ def main():
                   condition = ((df_sym['dihedral'] > (calculated_dihedral - leeway)) &
                                (df_sym['dihedral'] < (calculated_dihedral + leeway)))
 
-                  hits = df_sym.where(condition).dropna()
+                  xtal_hits = df_sym.isel(spacegroup=condition)
 
                   # spacegroup/cage   sym_type_1  sym_axis_1  sym_axis_1D(D_only)  origin_1 sym_type_2  sym_axis_2  sym_axis_2D(D_only)  origin_2 dihedral offset   shift(angle_0_only)
 
-                  mut_res_name = LIG_poses[LIG_pose]
-                  if len(hits) > 0:
-                     print(hits)
-                     print(pdb_name, residue, irot, mut_res_name, calculated_dihedral,
-                           np.sum(condition))
-                     ROT_pose.dump_pdb('successful_{}_{}_{}_{}.pdb'.format(
-                        pdb_name, residue, LIG_poses[LIG_pose], pose_num))
+                  print(pdb_name, residue, irot, mut_res_name, calculated_dihedral, 'xtal_hits',
+                        np.sum(condition.data), xtal_hits.sizes['spacegroup'])
+
+                  for ihit in range(xtal_hits.sizes['spacegroup']):
+                     xtal_hit = xtal_hits.sel(spacegroup=ihit)
+                     print(ihit, xtal_hit)
+                     xtal_pose = make_xtal_pose(xtal_hit, LIG_pose, residue, peptide_sym, lig_sym)
+                     xtal_pose.dump_pdb('successful_{}_{}_{}_{}_{}.pdb'.format(
+                        pdb_name,
+                        residue,
+                        LIG_poses[LIG_pose],
+                        pose_num,
+                        xtal_hit['spacegroup/cage'],
+                     ))
                      assert 0
 
                   pose_num += 1
             print(pdb_name, 'res', residue, 'bad rots:', bad_rots)
          else:
             continue
+
+def make_xtal_pose(xtalinfo, pose, ires, peptide_sym, lig_sym):
+   print(xtalinfo)
+   assert peptide_sym == 'C3'
+   assert lig_sym == 'D2'
+
+   assert xtalinfo['sym_type_1'] == peptide_sym
+   assert xtalinfo['sym_type_2'] == lig_sym
+   orig1 = xtalinfo['origin_1']
+   axis1 = xtalinfo['sym_axis_1']
+   axis1d = xtalinfo['sym_axis_1D(D_only)']
+   orig2 = xtalinfo['origin_2']
+   axis2 = xtalinfo['sym_axis_2']
+   axis2d = xtalinfo['sym_axis_2D(D_only)']
+
+   d2_axes = [axis2, axis2d, hm.hcross(axis2, axis2d)]
+
+   pept_axis = np.array([0, 0, 1])
+   pept_orig = np.array([0, 0, 0])
+   lig_orig = coord_find(pose, ires, 'VZN')
+   hz = coord_find(pose, ires, 'HZ')
+   ne = coord_find(pose, ires, 'VNE')
+   mv1 = hm.hnormalized(ne - lig_orig)
+   mv2 = hm.hnormalized(hz - lig_orig)
+   lig_d2a = (mv1 + mv2) / 2
+   lig_d2b = hm.hcross(mv1, mv2)
+   print(lig_d2a, lig_d2b)
+
+   rot = hm.align_vectors(pept_axis, lig)
+
+def get_xtal_info():
+   df = pandas.read_csv(data.frank_space_groups)
+   sgdat = dict()
+   for key in [
+         'spacegroup/cage', 'sym_type_1', 'sym_type_2', 'dihedral', 'offset',
+         'shift(angle_0_only)'
+   ]:
+      sgdat[key] = df[key]
+
+   goodrows = np.ones(len(df['offset']), dtype='bool')
+   for key in [
+         'sym_axis_1', 'sym_axis_1D(D_only)', 'origin_1', 'sym_axis_2', 'sym_axis_2D(D_only)',
+         'origin_2'
+   ]:
+      dat = list()
+      for i, val in enumerate(df[key]):
+         raw = val.split(',')
+         if raw[0] == '-':
+            if not key.count('D_only'):
+               goodrows[i] = 0
+            dat.append([-12345] * 4)
+            continue
+         if len(raw) is 1: raw = [raw[0]] * 3
+         homog = 1 if key in 'origin_1 origin2'.split() else 0
+         dat.append([float(x) for x in raw] + [homog])
+      sgdat[key] = np.array(dat)
+
+   for k, v in sgdat.items():
+      goodcol = v[goodrows]
+      if v.ndim > 1:
+         sgdat[k] = (['spacegroup', 'xyzw'], goodcol)
+      else:
+         sgdat[k] = (['spacegroup'], goodcol)
+
+   ds = xr.Dataset(sgdat)
+
+   print(ds)
+   print(ds['sym_type_2'])
+   print(np.sum(ds['sym_type_2'] == 'C3'))
+
+   return ds
 
 ### defs ###
 def gen_pdbs(pdblistfile):
@@ -218,7 +295,7 @@ def mut_to_ligand(pose, residue):
    sfxn = rosetta.core.scoring.ScoreFunctionFactory.create_score_function('ref2015')
    LIG_poses = []
    int_residues = []
-
+   lig_sym = []
    for ilig in range(1, len(LIGANDS), 2):
       ligand = LIGANDS[ilig]
       LIG_pose = pose.clone()
@@ -238,10 +315,11 @@ def mut_to_ligand(pose, residue):
       LIG_poses.append(LIG_pose)
       int_residues.append(
          str(LIG_pose.residue_type(residue)).partition('\n')[0].partition(' ')[0])
+      lig_sym.append(sym_of_ligand[ligand])
       if _DEBUG:
          print(LIG_poses)
          print(LIG_pose.residue_type(residue))
-      zipbObj = zip(LIG_poses, int_residues)
+      zipbObj = zip(LIG_poses, zip(int_residues, lig_sym))
       dict_pose_res = dict(zipbObj)
    return dict_pose_res
 
@@ -395,7 +473,7 @@ def coord_find(p, ir, ia):
 
    coord_xyz = p.xyz(rosetta.core.id.AtomID(p.residue(ir).atom_index(ia), ir))
    coord_arr = [coord_xyz[0], coord_xyz[1], coord_xyz[2]]
-   return coord_arr
+   return np.array(coord_arr)
 
 """getting the center of several points"""
 
