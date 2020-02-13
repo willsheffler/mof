@@ -1,43 +1,67 @@
 import sys, pandas, numpy as np, rmsd, rpxdock as rp, rpxdock.homog as hm, xarray as xr
 
-from mof import data
+from mof import data, xtal_spec, util
 
 import pyrosetta
 from pyrosetta import rosetta
-from pyrosetta.bindings.utility import bind_method
-from pyrosetta.rosetta.core.pack.rotamer_set import bb_independent_rotamers
-from pyrosetta.rosetta.core.conformation import Residue
+from pyrosetta.rosetta import core
 from pyrosetta.rosetta.core.pose import Pose
+from pyrosetta.rosetta.core.id import AtomID
+from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec, xyzMatrix_double_t as xyzMat
 
 _DEBUG = False
-# LIGANDS = ['HZ3', 'DHZ3']  #, 'HZ4', 'DHZ4']
-LIGANDS = ['HZ4', 'DHZ4']
-sym_of_ligand = dict(HZ3='D2', DHZ3='D2', HZ4='C4', DHZ4='C4')
-pyros_flags = f'-mute all -output_virtual -extra_res_fa {data.HZ4_params}'
+
+class Result:
+   """mof xtal search hit"""
+   def __init__(self, xspec, label, xalign, rpxbody, xtal_asym_pose, symbody_pdb):
+      super(Result, self).__init__()
+      self.xspec = xspec
+      self.label = label
+      self.xtal_asym_pose = xtal_asym_pose
+      self.symbody_pdb = symbody_pdb
+      self.xalign = xalign
+      self.rpxbody = rpxbody
 
 def main():
 
-   # pyrosetta.init(f'-mute all -output_virtual -extra_res_fa {data.all_params_files}')
+   max_dun_score = 4.0
+
+   sym_of_ligand = dict(HZ3='C3', DHZ3='C3', HZ4='C4', DHZ4='C4', HZD='D2', DHZD='D2')
+
+   # pyros_flags = f'-mute all -output_virtual -extra_res_fa {data.HZ3_params} -preserve_crystinfo'
+   # ligands = ['HZ3', 'DHZ3']
+   # xspec = xtal_spec.get_xtal_spec('p213')
+
+   pyros_flags = f'-mute all -output_virtual -extra_res_fa {data.HZ4_params} -preserve_crystinfo'
+   ligands = ['HZ4', 'DHZ4']
+   xspec = xtal_spec.get_xtal_spec('f432')
+
+   # pyros_flags = f'-mute all -output_virtual -extra_res_fa {data.HZD_params} -preserve_crystinfo'
+   # ligands = ['HZD', 'DHZD']
+   # xspec = xtal_spec.get_xtal_spec(None)
+
+   pept_orig = np.array([0, 0, 0, 1])
+   pept_axis = np.array([0, 0, 1, 0])
+
    pyrosetta.init(pyros_flags)
 
-   leeway = 1
-
-   pdb_gen = gen_pdbs(sys.argv[1])
-   prepped_pdb_gen = prep_poses(pdb_gen)
-
-   # read FD & UN's materials info into a pandas DataFrame (df)
-   df = get_xtal_info()
+   pdb_gen = util.gen_pdbs(sys.argv[1])
+   prepped_pdb_gen = util.prep_poses(pdb_gen)
 
    chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
    rts = chm.residue_type_set('fa_standard')
    scfxn = rosetta.core.scoring.ScoreFunction()
    scfxn.set_weight(rosetta.core.scoring.ScoreType.fa_dun, 1.0)
 
+   results = list()
+
    for pdb in prepped_pdb_gen:
       # gets the pdb name for outputs later
       p_n = pdb.pdb_info().name().split('/')[-1]
       # gets rid of the ".pdb" at the end of the pdb name
       pdb_name = p_n[:-4]
+
+      print(f'{pdb_name} searching')
 
       # check the symmetry type of the pdb
       last_res = rosetta.core.pose.chain_end_res(pdb).pop()
@@ -49,468 +73,251 @@ def main():
       sym = int(sym_num)
       peptide_sym = "C%i" % sym_num
 
-      for residue in range(1, int(total_res / sym) + 1):
+      for ires in range(1, int(total_res / sym) + 1):
 
-         if pdb.residue_type(residue) == rts.name_map('ALA') or pdb.residue_type(
-               residue) == rts.name_map('DALA'):
-            # one residue at a time, mutate to a residue that is involved in one of
-            # the defined interactions. Stores the output in a dictionary w/
-            #  "a" = poses, "b" = interaction residue (his, asp, cys, etc.)
-            LIG_poses = mut_to_ligand(pdb, residue)
+         if (pdb.residue_type(ires) == rts.name_map('ALA')
+             or pdb.residue_type(ires) == rts.name_map('DALA')):
+
+            lig_poses = util.mut_to_ligand(pdb, ires, ligands, sym_of_ligand)
             bad_rots = 0
-            for ilig, LIG_pose in enumerate(LIG_poses):
-               mut_res_name, lig_sym = LIG_poses[LIG_pose]
+            for ilig, lig_pose in enumerate(lig_poses):
+               mut_res_name, lig_sym = lig_poses[lig_pose]
 
-               # this df contains only applicable crystal space groups/cage types
-               # for a given scaffold (* is and, + is or... stupid numpy)
-               symmatch = (((peptide_sym == df['sym_type_1']) * (lig_sym == df['sym_type_2'])) +
-                           ((peptide_sym == df['sym_type_2']) * (lig_sym == df['sym_type_1'])))
-               assert np.sum(symmatch) > 0
-               df_sym = df.isel(spacegroup=symmatch)
-
-               transform(LIG_pose, [1, 0, 0])
-               # gets all of the backbone independent rotamers
-               rotamers = LIG_pose.residue(residue).get_rotamers()
+               rotamers = lig_pose.residue(ires).get_rotamers()
+               rotamers = util.extra_rotamers(rotamers, lb=-20, ub=21, bs=20)
 
                pose_num = 1
                for irot, rotamer in enumerate(rotamers):
                   #for i in range(1, len(rotamer)+1): # if I want to sample the metal-axis too
-                  for i in range(1, len(rotamer) + 1):
-                     LIG_pose.residue(residue).set_chi(i, rotamer[i])
-                  ROT_pose = rosetta.protocols.grafting.return_region(
-                     LIG_pose, 1, LIG_pose.size())
-
-                  # ROT_pose.dump_pdb('CHECK1_{}_{}_{}_{}.pdb'.format(residue, LIG_poses[LIG_pose],
-                  # pose_num, irot))
-
-                  # scores the mutated residue's fa_dun to only get "good" rotamers (bb_dependent)
-                  scfxn(ROT_pose)
-                  dun_score = ROT_pose.energies().residue_total_energies(residue)[
-                     rosetta.core.scoring.ScoreType.fa_dun]
-                  if dun_score >= 3:
-                     bad_rots += 1
-                     continue
-
-                  # if this dihedral is compatible with any of the spacegroups in the dataframe (df)
-                  # based on its calculated_dihedral and a pre-set "leeway" value I've set above,
-                  # it'll add the spacegroup to my "list_of_spacegroups" to store the info.
-                  calculated_dihedral = magic_angle(ROT_pose, residue)
+                  for i in range(len(rotamer)):
+                     lig_pose.residue(ires).set_chi(i + 1, rotamer[i])
+                  rot_pose = rosetta.protocols.grafting.return_region(
+                     lig_pose, 1, lig_pose.size())
 
                   if _DEBUG:
-                     print("CALCULATED DIHEDRAL:", calculated_dihedral, "POSE_NUM", pose_num)
+                     rot_pose.set_xyz(AtomID(rot_pose.residue(ires).atom_index('1HB'), ires),
+                                      xyzVec(0, 0, -2))
+                     rot_pose.set_xyz(AtomID(rot_pose.residue(ires).atom_index('CB'), ires),
+                                      xyzVec(0, 0, +0.0))
+                     rot_pose.set_xyz(AtomID(rot_pose.residue(ires).atom_index('2HB'), ires),
+                                      xyzVec(0, 0, +2))
 
-                  condition = ((df_sym['dihedral'] > (calculated_dihedral - leeway)) &
-                               (df_sym['dihedral'] < (calculated_dihedral + leeway)))
+                  scfxn(rot_pose)
+                  dun_score = rot_pose.energies().residue_total_energies(ires)[
+                     rosetta.core.scoring.ScoreType.fa_dun]
+                  if dun_score >= max_dun_score:
+                     bad_rots += 1
+                     continue
+                  rpxbody = rp.Body(rot_pose)
 
-                  xtal_hits = df_sym.isel(spacegroup=condition)
+                  metal_origin = hm.hpoint(util.coord_find(rot_pose, ires, 'VZN'))
+                  hz = hm.hpoint(util.coord_find(rot_pose, ires, 'HZ'))
+                  ne = hm.hpoint(util.coord_find(rot_pose, ires, 'VNE'))
+                  metal_his_bond = hm.hnormalized(metal_origin - ne)
+                  metal_sym_axis0 = hm.hnormalized(hz - metal_origin)
+                  dihedral = xspec.dihedral
 
-                  # spacegroup/cage   sym_type_1  sym_axis_1  sym_axis_1D(D_only)  origin_1 sym_type_2  sym_axis_2  sym_axis_2D(D_only)  origin_2 dihedral offset   shift(angle_0_only)
+                  rots_around_nezn = hm.xform_around_dof_for_vector_target_angle(
+                     fix=pept_axis, mov=metal_sym_axis0, dof=metal_his_bond,
+                     target_angle=np.radians(dihedral))
 
-                  print(pdb_name, residue, irot, mut_res_name, calculated_dihedral, 'xtal_hits',
-                        np.sum(condition.data), xtal_hits.sizes['spacegroup'])
+                  for idof, rot_around_nezn in enumerate(rots_around_nezn):
+                     metal_sym_axis = rot_around_nezn @ metal_sym_axis0
+                     assert np.allclose(hm.line_angle(metal_sym_axis, pept_axis),
+                                        np.radians(dihedral))
 
-                  for ihit in range(xtal_hits.sizes['spacegroup']):
-                     xtal_hit = xtal_hits.sel(spacegroup=ihit)
-                     print(ihit, xtal_hit)
-                     xtal_pose = make_xtal_pose(xtal_hit, LIG_pose, residue, peptide_sym, lig_sym)
-                     xtal_pose.dump_pdb('successful_{}_{}_{}_{}_{}.pdb'.format(
-                        pdb_name,
-                        residue,
-                        LIG_poses[LIG_pose],
-                        pose_num,
-                        xtal_hit['spacegroup/cage'],
-                     ))
-                     assert 0
+                     newhz = util.coord_find(rot_pose, ires, 'VZN') + 2 * metal_sym_axis[:3]
+
+                     aid = rosetta.core.id.AtomID(rot_pose.residue(ires).atom_index('HZ'), ires)
+                     xyz = rosetta.numeric.xyzVector_double_t(newhz[0], newhz[1], newhz[2])
+                     rot_pose.set_xyz(aid, xyz)
+
+                     tag = f'{pdb_name}_{ires}_{lig_poses[lig_pose][0]}_{idof}_{pose_num}'
+                     xtal_poses = make_xtal(pdb_name, xspec, rot_pose, ires, peptide_sym,
+                                            pept_orig, pept_axis, lig_sym, metal_origin,
+                                            metal_sym_axis, rpxbody, tag)
+
+                     for ixtal, (xalign, xtal_pose, body_pdb) in enumerate(xtal_poses):
+                        celldim = xtal_pose.pdb_info().crystinfo().A()
+                        fname = f"{xspec.spacegroup.replace(' ','_')}_cell{int(celldim):03}_{tag}"
+                        results.append(Result(xspec, fname, xalign, rpxbody, xtal_pose, body_pdb))
 
                   pose_num += 1
-            print(pdb_name, 'res', residue, 'bad rots:', bad_rots)
+            # print(pdb_name, 'res', ires, 'bad rots:', bad_rots)
          else:
             continue
 
-def make_xtal_pose(xtalinfo, pose, ires, peptide_sym, lig_sym):
-   print(xtalinfo)
-   assert peptide_sym == 'C3'
-   assert lig_sym == 'D2'
+   if not results:
+      return
 
-   assert xtalinfo['sym_type_1'] == peptide_sym
-   assert xtalinfo['sym_type_2'] == lig_sym
-   orig1 = xtalinfo['origin_1']
-   axis1 = xtalinfo['sym_axis_1']
-   axis1d = xtalinfo['sym_axis_1D(D_only)']
-   orig2 = xtalinfo['origin_2']
-   axis2 = xtalinfo['sym_axis_2']
-   axis2d = xtalinfo['sym_axis_2D(D_only)']
+   xforms = np.array([r.xalign for r in results])
+   non_redundant = rp.filter.filter_redundancy(xforms, results[0].rpxbody, every_nth=1,
+                                               max_bb_redundancy=1.0, max_cluster=10000)
+   for i, result in enumerate(results):
+      if i in non_redundant:
+         print('dumping', result.label)
+         result.xtal_asym_pose.dump_pdb(result.label + '_asym.pdb')
+         rp.util.dump_str(result.symbody_pdb, 'sym_' + result.label + '.pdb')
 
-   d2_axes = [axis2, axis2d, hm.hcross(axis2, axis2d)]
+   print("DONE")
 
-   pept_axis = np.array([0, 0, 1])
-   pept_orig = np.array([0, 0, 0])
-   lig_orig = coord_find(pose, ires, 'VZN')
-   hz = coord_find(pose, ires, 'HZ')
-   ne = coord_find(pose, ires, 'VNE')
-   mv1 = hm.hnormalized(ne - lig_orig)
-   mv2 = hm.hnormalized(hz - lig_orig)
-   lig_d2a = (mv1 + mv2) / 2
-   lig_d2b = hm.hcross(mv1, mv2)
-   print(lig_d2a, lig_d2b)
+def make_xtal(pdb_name, xspec, pose, ires, peptide_sym, pept_orig, pept_axis, lig_sym,
+              metal_origin, metal_sym_axis, rpxbody, tag):
 
-   rot = hm.align_vectors(pept_axis, lig)
+   sym1 = xspec.sym1
+   orig1 = xspec.orig1
+   axis1 = xspec.axis1
+   axis1d = xspec.axis1d
 
-def get_xtal_info():
-   df = pandas.read_csv(data.frank_space_groups)
-   sgdat = dict()
-   for key in [
-         'spacegroup/cage', 'sym_type_1', 'sym_type_2', 'dihedral', 'offset',
-         'shift(angle_0_only)'
-   ]:
-      sgdat[key] = df[key]
+   sym2 = xspec.sym2
+   orig2 = xspec.orig2
+   axis2 = xspec.axis2
+   axis2d = xspec.axis2d
 
-   goodrows = np.ones(len(df['offset']), dtype='bool')
-   for key in [
-         'sym_axis_1', 'sym_axis_1D(D_only)', 'origin_1', 'sym_axis_2', 'sym_axis_2D(D_only)',
-         'origin_2'
-   ]:
-      dat = list()
-      for i, val in enumerate(df[key]):
-         raw = val.split(',')
-         if raw[0] == '-':
-            if not key.count('D_only'):
-               goodrows[i] = 0
-            dat.append([-12345] * 4)
-            continue
-         if len(raw) is 1: raw = [raw[0]] * 3
-         homog = 1 if key in 'origin_1 origin2'.split() else 0
-         dat.append([float(x) for x in raw] + [homog])
-      sgdat[key] = np.array(dat)
+   dihedral = xspec.dihedral
 
-   for k, v in sgdat.items():
-      goodcol = v[goodrows]
-      if v.ndim > 1:
-         sgdat[k] = (['spacegroup', 'xyzw'], goodcol)
-      else:
-         sgdat[k] = (['spacegroup'], goodcol)
-
-   ds = xr.Dataset(sgdat)
-
-   print(ds)
-   print(ds['sym_type_2'])
-   print(np.sum(ds['sym_type_2'] == 'C3'))
-
-   return ds
-
-### defs ###
-def gen_pdbs(pdblistfile):
-   # Reads a pdbs.list file to get the paths to all of the pdbs I want to test,
-   # then opens the pdbs with import_pose.pose_from_file
-   # Returns a list, raw_pose_list, that contains all of the poses
-   raw_pose_path_list = []
-   raw_pose_list = []
-   pdbslist = open(pdblistfile, "r")
-   lines = pdbslist.read().splitlines()
-   for line in lines:
-      raw_pose_path_list.append(line)
-   for path in raw_pose_path_list:
-      yield rosetta.core.import_pose.pose_from_file(path)
-
-   #    raw_pose = rosetta.core.import_pose.pose_from_file(path)
-   #    raw_pose_list.append(raw_pose)
-   # return raw_pose_list
-
-def variant_remove(pose):
-   # Takes in a pose, if there are any variant types on it, it gets rid of it
-   # This makes it so that the atom number dependent functions later on don't get
-   # tripped up by the extra atoms that get added on if you have a terminus variant
-   for res in range(1, pose.size() + 1):
-      if (pose.residue(res).has_variant_type(
-            pyrosetta.rosetta.core.chemical.UPPER_TERMINUS_VARIANT)):
-         pyrosetta.rosetta.core.pose.remove_variant_type_from_pose_residue(
-            pose, pyrosetta.rosetta.core.chemical.UPPER_TERMINUS_VARIANT, res)
-      if (pose.residue(res).has_variant_type(
-            pyrosetta.rosetta.core.chemical.LOWER_TERMINUS_VARIANT)):
-         pyrosetta.rosetta.core.pose.remove_variant_type_from_pose_residue(
-            pose, pyrosetta.rosetta.core.chemical.LOWER_TERMINUS_VARIANT, res)
-      if (pose.residue(res).has_variant_type(pyrosetta.rosetta.core.chemical.CUTPOINT_LOWER)):
-         pyrosetta.rosetta.core.pose.remove_variant_type_from_pose_residue(
-            pose, pyrosetta.rosetta.core.chemical.CUTPOINT_LOWER, res)
-      if (pose.residue(res).has_variant_type(pyrosetta.rosetta.core.chemical.CUTPOINT_UPPER)):
-         pyrosetta.rosetta.core.pose.remove_variant_type_from_pose_residue(
-            pose, pyrosetta.rosetta.core.chemical.CUTPOINT_UPPER, res)
-
-def cyc_align(pose):
-   # Takes in a pose, cyclizes it, then aligns it to the z-axis
-   # Returns a pose
-   pcm = rosetta.protocols.cyclic_peptide.PeptideCyclizeMover()
-   ata = rosetta.protocols.cyclic_peptide.SymmetricCycpepAlign()
-   pcm.apply(pose)
-   ata.apply(pose)
-   return pose
-
-def prep_poses(pose_gen):
-   # Does the same thing as cyc_align, but for a list of poses
-   # ALSO: makes all non-PRO (l&d) non-AIB residues into Alanines
-   # Returns a new list of poses, preped_pdbs
-   create_residue = pyrosetta.rosetta.core.conformation.ResidueFactory.create_residue
-   chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
-   rts = chm.residue_type_set('fa_standard')
-   ala_inst = rosetta.core.conformation.ResidueFactory.create_residue(rts.name_map('ALA'))
-   dala_inst = rosetta.core.conformation.ResidueFactory.create_residue(rts.name_map('DALA'))
-
-   AIB_Pp = rosetta.core.select.residue_selector.ResidueNameSelector('PRO,DPR,AIB', True)
-   pos_phi = rosetta.core.select.residue_selector.PhiSelector()
-   pos_phi.set_select_positive_phi(True)  # True=select +phi
-   neg_phi = rosetta.core.select.residue_selector.NotResidueSelector(pos_phi)
-   rtc = rosetta.core.select.residue_selector.NotResidueSelector(AIB_Pp)
-   checkable_res_pos = rosetta.core.select.residue_selector.AndResidueSelector(rtc, pos_phi)
-   checkable_res_neg = rosetta.core.select.residue_selector.AndResidueSelector(rtc, neg_phi)
-
-   prepped_pdbs = []
-   mut_d = rosetta.protocols.simple_moves.MutateResidue()
-   mut_l = rosetta.protocols.simple_moves.MutateResidue()
-   for pose in pose_gen:
-      mut_d.set_selector(checkable_res_pos)
-      mut_d.set_res_name('DALA')
-      mut_d.apply(pose)
-      mut_l.set_selector(checkable_res_neg)
-      mut_l.set_res_name('ALA')
-      mut_l.apply(pose)
-      yield pose
-   #    prepped_pdbs.append(pose)
-   # return prepped_pdbs
-
-def minimize(pose, sfxn):
-   # Minimizes the input pose using the input scorefunction
-   movemap = rosetta.core.kinematics.MoveMap()
-   movemap.set_chi(True)
-   movemap.set_bb(False)
-   movemap.set_jump(False)
-   minmover = pyrosetta.rosetta.protocols.minimization_packing.MinMover(
-      movemap, sfxn, 'linmin', 0.001, True)
-   for i in range(5):
-      minmover.apply(pose)
-
-def mut_to_ligand(pose, residue):
-   # For a given pose, attempts to mutate each residue (one at a time) to a new residue from my list of LIGANDS
-   # Returns a dictionary, LIG_poses, that contains all of the new poses with mutated residue positions
-   # where "a" = poses, "b" = interaction residue (HZ3, HZ4, etc.)
-   sfxn = rosetta.core.scoring.ScoreFunctionFactory.create_score_function('ref2015')
-   LIG_poses = []
-   int_residues = []
-   lig_sym = []
-   for ilig in range(1, len(LIGANDS), 2):
-      ligand = LIGANDS[ilig]
-      LIG_pose = pose.clone()
-      if LIG_pose.phi(residue) > 0:
-         mut = rosetta.protocols.simple_moves.MutateResidue()
-         mut.set_res_name(ligand)
-         mut.set_target(residue)
-         mut.set_preserve_atom_coords(False)
-         mut.apply(LIG_pose)
-      else:
-         mut = rosetta.protocols.simple_moves.MutateResidue()
-         mut.set_res_name(ligand)
-         mut.set_target(residue)
-         mut.set_preserve_atom_coords(False)
-         mut.apply(LIG_pose)
-      minimize(LIG_pose, sfxn)
-      LIG_poses.append(LIG_pose)
-      int_residues.append(
-         str(LIG_pose.residue_type(residue)).partition('\n')[0].partition(' ')[0])
-      lig_sym.append(sym_of_ligand[ligand])
-      if _DEBUG:
-         print(LIG_poses)
-         print(LIG_pose.residue_type(residue))
-      zipbObj = zip(LIG_poses, zip(int_residues, lig_sym))
-      dict_pose_res = dict(zipbObj)
-   return dict_pose_res
-
-def transform(pose, target_v):
-   # Calculates the transformations necessary to move the input pose
-   # from its original position to [0,0,1]
-   originial_axis = [0, 0, 1]  # this must be a unit vector
-   cross_p = np.cross(originial_axis, target_v)
-   dot_p = np.dot(originial_axis, target_v)
-   skew_symmetric_matrix = np.matrix([[0, -cross_p[2], cross_p[1]], [cross_p[2], 0, -cross_p[0]],
-                                      [-cross_p[1], cross_p[0], 0]])
-   I = np.matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-   '''V is rotation matrix'''
-   A = I + skew_symmetric_matrix + skew_symmetric_matrix * skew_symmetric_matrix * (1 /
-                                                                                    (1 + dot_p))
-   # rosetta does not understand matrices, so we need to spoon feed it an array
-   V = np.squeeze(np.asarray(A))
-   Rx = rosetta.numeric.xyzMatrix_double_t.cols(V[0][0], V[1][0], V[2][0], V[0][1], V[1][1],
-                                                V[2][1], V[0][2], V[1][2], V[2][2])
-   noT = rosetta.numeric.xyzVector_double_t(0, 0, 0)
-   pose.apply_transform_Rx_plus_v(Rx, noT)
-
-@bind_method(Residue)
-def get_rotamers(self):
-   # Gets rotamers for a given residue
-   if self.type().is_d_aa():
-      rotamers = [
-         pyrosetta.Vector1([-chi
-                            for chi in rotamer.chi()])
-         for rotamer in bb_independent_rotamers(self.type())
-      ]
+   if np.allclose(orig2, [0, 0, 0, 1]):
+      sym1, sym2 = sym2, sym1
+      orig1, orig2 = orig2, orig1
+      axis1, axis2 = axis2, axis1
+      axis1d, axis2d = axis2d, axis1d
+      swapped = True  # hopefully won't need this
+      assert sym1 == lig_sym
+      assert sym2 == peptide_sym
+      # axis2 = np.array([0.57735, 0.57735, 0.57735, 0])
+      # axis1 = np.array([1, 0, 0, 0])
+      # orig2 = np.array([0.5, 0.5, 0, 1])
    else:
-      rotamers = [rotamer.chi() for rotamer in bb_independent_rotamers(self.type())]
-   return rotamers
+      if not np.allclose(orig1, [0, 0, 0, 1]):
+         return []
+      # assert np.allclose(orig1, [0, 0, 0, 1])
+      assert sym1 == peptide_sym
+      assert sym2 == lig_sym
+      swaped = False
+      # axis1 = np.array([0.57735, 0.57735, 0.57735, 0])
+      assert 0, 'maybe ok, check this new branch'
 
-# @bind_method(Residue)
-# def set_random_rotamer(self):
-#    # Randomly selects a rotamer for finding rotamers
-#    rotamers = self.get_rotamers()
-#    one_rot = rotamers[random.randint(0, len(rotamers))]
-#    if _DEBUG:
-#       print("-----this is the random rotamer selected", one_rot, "out of total", len(rotamers))
-#    for i in range(1, len(one_rot) + 1):  # Sets the random rotamer
-#       self.set_chi(i, one_rot[i])
+   if sym1 == peptide_sym:
+      pt1, ax1 = pept_orig, pept_axis
+      pt2, ax2 = metal_origin, metal_sym_axis
+      first_is_peptide = True
+   else:
+      pt1, ax1 = metal_origin, metal_sym_axis
+      pt2, ax2 = pept_orig, pept_axis
+      first_is_peptide = False
 
-# def align_HIS(orig, rotd, resi, r_end):
-#    # orig is the original position you want to get aligned to
-#    # rotd is short for rotated and is the pose that is being rotated
-#    # resi is the residue number in the orig poses that we are aligning
-#    # and r_end is the residue number in the rotd pose
-#    p_scaff = []
-#    p_targ = []
-#    for atom in range(6, orig.residue(resi).natoms() + 1):
-#       #if _DEBUG:
-#       #print ("orig resi is: ", orig.residue(resi))
-#       #print ("atom number of orig resi is: ", atom)
-#       if (not orig.residue(resi).atom_is_hydrogen(atom)):
-#          p_scaff.append(coord_find(rotd, r_end, rotd.residue(r_end).atom_name(atom)))
-#          #if _DEBUG:
-#          #print ("p_scaff is: ", p_scaff)
-#          p_targ.append(coord_find(orig, resi, orig.residue(resi).atom_name(atom)))
-#
-#    #step1: moving scaffold to the center
-#    T = find_cent(p_scaff)
-#    plusv = rosetta.numeric.xyzVector_double_t(-1 * T[0], -1 * T[1], -1 * T[2])
-#    #does not rotate
-#    noR = rosetta.numeric.xyzMatrix_double_t.cols(1, 0, 0, 0, 1, 0, 0, 0, 1)
-#    rotd.apply_transform_Rx_plus_v(noR, plusv)
-#
-#    #Step1': get the coordinates of target at the center
-#    T_targ = find_cent(p_targ)
-#    v_targ = rosetta.numeric.xyzVector_double_t(-1 * T_targ[0], -1 * T_targ[1], -1 * T_targ[2])
-#    orig.apply_transform_Rx_plus_v(noR, v_targ)
-#
-#    #need to re-load the matrix now because the pose has changed
-#    p_scaff_new = []
-#    p_targ_new = []
-#    for atom in range(6, orig.residue(resi).natoms() + 1):
-#       #if (not (orig.residue(resi).atom_is_backbone(atom))):
-#       if (not orig.residue(resi).atom_is_hydrogen(atom)):
-#          p_scaff_new.append(coord_find(rotd, r_end, rotd.residue(r_end).atom_name(atom)))
-#          p_targ_new.append(coord_find(orig, resi, orig.residue(resi).atom_name(atom)))
-#
-#    #Step 2: get the rotation matrix
-#    #the magic of libraries
-#    #V=rmsd.kabsch(p_targ_new,p_scaff_new)
-#    semi_V = rmsd.kabsch(p_scaff_new, p_targ_new)
-#    V = np.linalg.inv(semi_V)
-#
-#    #Rotate the pose
-#    Rx = rosetta.numeric.xyzMatrix_double_t.cols(V[0][0], V[1][0], V[2][0], V[0][1], V[1][1],
-#                                                 V[2][1], V[0][2], V[1][2], V[2][2])
-#    noT = rosetta.numeric.xyzVector_double_t(0, 0, 0)
-#
-#    #moving the pose
-#    rotd.apply_transform_Rx_plus_v(Rx, noT)
-#
-#    #Step3: translate the pose back to target (both the new and the original)
-#    scaff_trans = rosetta.numeric.xyzVector_double_t(T_targ[0], T_targ[1], T_targ[2])
-#    rotd.apply_transform_Rx_plus_v(noR, scaff_trans)
-#    orig.apply_transform_Rx_plus_v(noR, scaff_trans)
-#
-#    #generating final set
-#    p_scaff_final = []
-#    for atom in range(6, orig.residue(resi).natoms() + 1):
-#       #if (not (orig.residue(resi).atom_is_backbone(atom))):
-#       if (not orig.residue(resi).atom_is_hydrogen(atom)):
-#          p_scaff_final.append(coord_find(rotd, r_end, rotd.residue(r_end).atom_name(atom)))
-"""find axis function for metal_ligand"""
+   nfold1 = float(str(sym1)[1])
+   nfold2 = float(str(sym2)[1])
 
-def plane_normal_finder(point1, point2, point3=[]):
+   assert np.allclose(hm.line_angle(metal_sym_axis, pept_axis), np.radians(dihedral))
+   assert np.allclose(hm.line_angle(ax1, ax2), np.radians(dihedral))
 
-   if len(point3) > 0:
-      p1 = np.array(point1)
-      p2 = np.array(point2)
-      p3 = np.array(point3)
+   # print(hm.line_angle(ax1, ax2), np.radians(dihedral), dihedral)
 
-      # These two vectors are in the plane
-      v1 = p3 - p1
-      v2 = p2 - p1
+   # print('sym1', sym1, orig1, axis1, ax1)
+   # print('sym2', sym2, orig2, axis2, ax2)
 
-      # the cross product is a vector normal to the plane
-      cp = np.cross(v1, v2)
-      a, b, c = cp
+   Xalign, delta = hm.align_lines_isect_axis2(pt1, ax1, pt2, ax2, axis1, orig1, axis2,
+                                              orig2 - orig1)
+   xpt1, xax1 = Xalign @ pt1, Xalign @ ax1
+   xpt2, xax2 = Xalign @ pt2, Xalign @ ax2
+   # print('aligned1', xpt1, xax1)
+   # print('aligned2', xpt2, xax2)
+   assert np.allclose(hm.line_angle(xax1, axis1), 0.0, atol=0.001)
+   assert np.allclose(hm.line_angle(xax2, axis2), 0.0, atol=0.001)
+   assert np.allclose(hm.line_angle(xpt1, axis1), 0.0, atol=0.001)
+   isect_error2 = hm.line_line_distance_pa(xpt2, xax2, [0, 0, 0, 1], orig2 - orig1)
+   assert np.allclose(isect_error2, 0, atol=0.001)
 
-      return cp
+   isect = hm.line_line_closest_points_pa(xpt2, xax2, [0, 0, 0, 1], orig2 - orig1)
+   isect = (isect[0] + isect[1]) / 2
+   celldims = list()
+   orig = orig2  # not always??
+   celldims = [isect[i] / o for i, o in enumerate(orig[:3]) if abs(o) > 0.001]
+   assert np.allclose(min(celldims), max(celldims), atol=0.001)
+   celldim = abs(min(celldims))
 
-def magic_angle(pose, residue_number):
+   if celldim < xspec.min_cell_size:
+      return []
 
-   p1 = coord_find(pose, residue_number, 'VZN')
-   p2 = coord_find(pose, residue_number, 'HZ')
-   p1_a = np.array(p1)
-   p2_a = np.array(p2)
+   print(f'{pdb_name} resi {ires:3} found xtal, celldim {celldim:7.3}')
 
-   peptide_axis = [1, 0, 0]
-   interaction_axis = p1_a - p2_a
-   m_a = (angle(peptide_axis, interaction_axis) * (180 / np.pi))
+   nsym = int(peptide_sym[1])
+   assert pose.size() % nsym == 0
+   nres_asym = pose.size() // nsym
+   xtal_pose = rosetta.protocols.grafting.return_region(pose, 1, nres_asym)
 
-   if _DEBUG:
-      print("P1:", p1)
-      print("P2:", p2)
-      print("P1_A", p1_a)
-      print("P2_A", p2_a)
-      print("INTERACTION_AXIS:", interaction_axis)
+   # hz = coord_find(xtal_pose, ires, 'VZN') + 2 * metal_sym_axis[:3]
+   # xtal_pose.set_xyz(rosetta.core.id.AtomID(xtal_pose.residue(ires).atom_index('HZ'), ires),
+   # rosetta.numeric.xyzVector_double_t(hz[0], hz[1], hz[2]))
 
-   return m_a
+   xtal_pose.apply_transform_Rx_plus_v(
+      rosetta.numeric.xyzMatrix_double_t.cols(Xalign[0, 0], Xalign[1, 0], Xalign[2, 0],
+                                              Xalign[0, 1], Xalign[1, 1], Xalign[2, 1],
+                                              Xalign[0, 2], Xalign[1, 2], Xalign[2, 2]),
+      rosetta.numeric.xyzVector_double_t(Xalign[0, 3], Xalign[1, 3], Xalign[2, 3]))
 
-"""change xyz to coordinates"""
+   # check ZN sym center location vs zn position
 
-def coord_find(p, ir, ia):
+   g1 = hm.hrot(axis1, 2 * np.pi / nfold1 * np.arange(1, nfold1), celldim * orig1)
+   g2 = hm.hrot(axis2, 2 * np.pi / nfold2 * np.arange(1, nfold2), celldim * orig2)
+   if swapped: g1, g2 = g2, g1
+   g = np.concatenate([g1, g2])
+   # print('swapped', swapped)
+   redundant_point = (xpt1 + xax1) if first_is_peptide else (xpt2 + xax2)
+   # redundant_point += [0.0039834, 0.0060859, 0.0012353, 0]
+   # print('redundancy point', redundant_point)
+   # rpxbody.move_to(np.eye(4))
+   # rpxbody.dump_pdb('a_body.pdb')
+   rpxbody.move_to(Xalign)
+   # print(0, Xalign @ hm.hpoint([1, 2, 3]))
+   # rpxbody.dump_pdb('a_body_xalign.pdb')
+   rpxbody_pdb, ir_ic = rpxbody.str_pdb(warn_on_chain_overflow=False, use_orig_coords=False)
+   for i, x in enumerate(hm.expand_xforms(g, redundant_point=redundant_point, N=7, maxrad=50)):
+      # print('sym xform', hm.axis_ang_cen_of(x))
+      if np.allclose(x, np.eye(4), atol=1e-4): assert 0
+      rpxbody.move_to(x @ Xalign)
+      pdbstr, ir_ic = rpxbody.str_pdb(start=ir_ic, warn_on_chain_overflow=False,
+                                      use_orig_coords=False)
+      rpxbody_pdb += pdbstr
+      # print()
+      # print(i, Xalign @ hm.hpoint([1, 2, 3]))
+      # print(i, x @ Xalign @ hm.hpoint([1, 2, 3]))
+      # print('x.axis_angle_cen', hm.axis_angle_of(x)[1] * 180 / np.pi)
 
-   coord_xyz = p.xyz(rosetta.core.id.AtomID(p.residue(ir).atom_index(ia), ir))
-   coord_arr = [coord_xyz[0], coord_xyz[1], coord_xyz[2]]
-   return np.array(coord_arr)
+      if rpxbody.intersect(rpxbody, Xalign, x @ Xalign, mindis=3.0):
+         if _DEBUG:
+            show_body_isect(rpxbody, Xalign, maxdis=3.0)
+            rp.util.dump_str(rpxbody_pdb, 'sym_bodies.pdb')
+            assert 0
+         # return []
+         break  # for debugging
 
-"""getting the center of several points"""
+   # fname = f'{tag}_body_xtal.pdb'
+   # print('dumping checked bodies', fname)
 
-def find_cent(A):
+   ci = pyrosetta.rosetta.core.io.CrystInfo()
+   ci.A(celldim)  # cell dimensions
+   ci.B(celldim)
+   ci.C(celldim)
+   ci.alpha(90)  # cell angles
+   ci.beta(90)
+   ci.gamma(90)
+   ci.spacegroup(xspec.spacegroup)  # sace group
+   pi = pyrosetta.rosetta.core.pose.PDBInfo(xtal_pose)
+   pi.set_crystinfo(ci)
+   xtal_pose.pdb_info(pi)
 
-   sumA = [0, 0, 0]
-   for i in range(len(A)):
-      sumA[0] = sumA[0] + A[i][0]
-      sumA[1] = sumA[1] + A[i][1]
-      sumA[2] = sumA[2] + A[i][2]
+   oldzn = hm.hpoint(util.coord_find(pose, ires, 'VZN'))
+   newzn = hm.hpoint(util.coord_find(xtal_pose, ires, 'VZN'))
+   assert np.allclose(newzn, Xalign @ oldzn, atol=0.001)
 
-   for i in range(3):
-      sumA[i] = sumA[i] / len(A)
+   # pose.dump_pdb('a_pose.pdb')
+   rp.util.dump_str(rpxbody_pdb, 'a_xtal_body.pdb')
+   xtal_pose.dump_pdb('a_xtal_pose.pdb')
+   assert 0, 'wip: xtal pose'
 
-   return sumA
-
-"""get the angle between two vectors"""
-
-def dotproduct(v1, v2):
-   return sum((a * b) for a, b in zip(v1, v2))
-
-def length(v):
-   return np.sqrt(dotproduct(v, v))
-
-def angle(v1, v2):
-   if dotproduct(v1, v2) == 1:
-      return 0
-   return np.arccos(dotproduct(v1, v2) / (length(v1) * length(v2)))
-
-def output_data(pdb_name, residue, mut_res_name, pose_num, list_of_spacegroups):
-   file_name = '{}_{}_{}_{}.txt'.format(pdb_name, residue, mut_res_name, pose_num)
-   o = open(file_name, "w")
-   o.write("PDB NAME: %s\n" % pdb_name)
-   o.write("MUTATED RESIDUE NUMBER: %s\n" % residue)
-   o.write("MUTATED RESIDUE ID: %s\n" % mut_res_name)
-   o.write("ROTAMER NUMBER: %s\n\n" % pose_num)
-   o.write("COMPATIBLE SPACEGROUP(S): \n%s\n" % list_of_spacegroups)
+   return [(Xalign, xtal_pose, rpxbody_pdb)]
 
 if __name__ == '__main__':
    main()
