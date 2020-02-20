@@ -1,3 +1,4 @@
-*/__pycache__
+__pycache__
+*__pycache__
 sublime_build.log
 mof.sublime-workspace

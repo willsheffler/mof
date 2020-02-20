@@ -39,47 +39,47 @@ def show_body_isect(body, Xalign, maxdis=3.0):
    body.dump_pdb('body.pdb')
    body2.dump_pdb('body2.pdb')
 
-def get_xtal_info():
-   df = pandas.read_csv(data.frank_space_groups)
-   sgdat = dict()
-   for key in [
-         'spacegroup/cage', 'sym_type_1', 'sym_type_2', 'dihedral', 'offset',
-         'shift(angle_0_only)'
-   ]:
-      sgdat[key] = df[key]
-
-   goodrows = np.ones(len(df['offset']), dtype='bool')
-   for key in [
-         'sym_axis_1', 'sym_axis_1D(D_only)', 'origin_1', 'sym_axis_2', 'sym_axis_2D(D_only)',
-         'origin_2'
-   ]:
-      dat = list()
-      for i, val in enumerate(df[key]):
-         raw = val.split(',')
-         if raw[0] == '-':
-            if not key.count('D_only'):
-               goodrows[i] = 0
-            dat.append([-12345] * 4)
-            continue
-         if len(raw) is 1: raw = [raw[0]] * 3
-         homog = 1.0 if key in 'origin_1 origin_2'.split() else 0.0
-         dat.append([float(x) for x in raw] + [homog])
-      sgdat[key] = np.array(dat)
-
-   for k, v in sgdat.items():
-      goodcol = v[goodrows]
-      if v.ndim > 1:
-         sgdat[k] = (['spacegroup', 'xyzw'], goodcol)
-      else:
-         sgdat[k] = (['spacegroup'], goodcol)
-
-   ds = xr.Dataset(sgdat)
-
-   # print(ds)
-   # print(ds['sym_type_2'])
-   # print(np.sum(ds['sym_type_2'] == 'C3'))
-
-   return ds
+# def get_xtal_info():
+#    df = pandas.read_csv(data.frank_space_groups)
+#    sgdat = dict()
+#    for key in [
+#          'spacegroup/cage', 'sym_type_1', 'sym_type_2', 'dihedral', 'offset',
+#          'shift(angle_0_only)'
+#    ]:
+#       sgdat[key] = df[key]
+#
+#    goodrows = np.ones(len(df['offset']), dtype='bool')
+#    for key in [
+#          'sym_axis_1', 'sym_axis_1D(D_only)', 'origin_1', 'sym_axis_2', 'sym_axis_2D(D_only)',
+#          'origin_2'
+#    ]:
+#       dat = list()
+#       for i, val in enumerate(df[key]):
+#          raw = val.split(',')
+#          if raw[0] == '-':
+#             if not key.count('D_only'):
+#                goodrows[i] = 0
+#             dat.append([-12345] * 4)
+#             continue
+#          if len(raw) is 1: raw = [raw[0]] * 3
+#          homog = 1.0 if key in 'origin_1 origin_2'.split() else 0.0
+#          dat.append([float(x) for x in raw] + [homog])
+#       sgdat[key] = np.array(dat)
+#
+#    for k, v in sgdat.items():
+#       goodcol = v[goodrows]
+#       if v.ndim > 1:
+#          sgdat[k] = (['spacegroup', 'xyzw'], goodcol)
+#       else:
+#          sgdat[k] = (['spacegroup'], goodcol)
+#
+#    ds = xr.Dataset(sgdat)
+#
+#    # print(ds)
+#    # print(ds['sym_type_2'])
+#    # print(np.sum(ds['sym_type_2'] == 'C3'))
+#
+#    return ds
 
 ### defs ###
 def gen_pdbs(pdblistfile):
