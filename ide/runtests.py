@@ -11,7 +11,7 @@ from time import perf_counter
 from collections import defaultdict
 
 _overrides = {
-   "genrate_motif_scores.py": "PYTHONPATH=. python rpxdock/app/genrate_motif_scores.py TEST"
+   #   "genrate_motif_scores.py": "PYTHONPATH=. python rpxdock/app/genrate_motif_scores.py TEST"
 }
 
 _file_mappings = {
@@ -28,7 +28,7 @@ def file_has_main(file):
 
 def testfile_of(path, bname):
    print("testfile_of", path, bname)
-   t = re.sub("^rpxdock", "rpxdock/tests", path) + "/test_" + bname
+   t = re.sub("^mof", "mof/tests", path) + "/test_" + bname
    if os.path.exists(t):
       return t
 

@@ -1,4 +1,4 @@
 import os
 
-def test_data_path(fname):
+def path_to_test_data(fname):
    return os.path.join(os.path.dirname(__file__), fname)

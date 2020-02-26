@@ -228,14 +228,11 @@ def transform(pose, target_v):
 @bind_method(Residue)
 def get_rotamers(self):
    # Gets rotamers for a given residue
+   rosrots = bb_independent_rotamers(self.type())
    if self.type().is_d_aa():
-      rotamers = [
-         pyrosetta.Vector1([-chi
-                            for chi in rotamer.chi()])
-         for rotamer in bb_independent_rotamers(self.type())
-      ]
+      rotamers = [pyrosetta.Vector1([-chi for chi in rotamer.chi()]) for rotamer in rosrots]
    else:
-      rotamers = [rotamer.chi() for rotamer in bb_independent_rotamers(self.type())]
+      rotamers = [rotamer.chi() for rotamer in rosrots]
    return rotamers
 
 # @bind_method(Residue)

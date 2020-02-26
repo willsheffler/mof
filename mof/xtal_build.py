@@ -19,6 +19,7 @@ def xtal_build(
       metal_sym_axis,
       rpxbody,
       tag,
+      debug=False,
 ):
 
    sym1 = xspec.sym1
@@ -142,12 +143,12 @@ def xtal_build(
       # print('x.axis_angle_cen', hm.axis_angle_of(x)[1] * 180 / np.pi)
 
       if rpxbody.intersect(rpxbody, Xalign, x @ Xalign, mindis=3.0):
-         if _DEBUG:
+         if debug:
             show_body_isect(rpxbody, Xalign, maxdis=3.0)
             rp.util.dump_str(rpxbody_pdb, 'sym_bodies.pdb')
             assert 0
+         break  # for debugging
          return []
-         # break  # for debugging
 
    # fname = f'{tag}_body_xtal.pdb'
    # print('dumping checked bodies', fname)

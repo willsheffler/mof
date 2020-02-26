@@ -1,1 +1,1 @@
-from mof.tests.data.test_data import test_data_path
+from mof.tests.data.test_data import path_to_test_data

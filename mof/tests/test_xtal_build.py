@@ -1,13 +1,13 @@
 import numpy as np
 
 from pyrosetta.rosetta.core.import_pose import pose_from_file
-from mof.tests import test_data_path
+from mof.tests import path_to_test_data
 from mof import util, pyrosetta_init, xtal_spec
 from mof.xtal_build import xtal_build
 import rpxdock as rp
 
 def test_xtal_build_p213():
-   pose = pose_from_file(test_data_path('test_xtal_build_p213.pdb'))
+   pose = pose_from_file(path_to_test_data('test_xtal_build_p213.pdb'))
 
    xtal_posess = xtal_build(
       pdb_name='testpdb',
@@ -25,6 +25,7 @@ def test_xtal_build_p213():
    )
 
    xalign, xpose, bodypdb = xtal_posess[0]
+   print('verify bb coords')
    assert np.allclose(
       util.coord_find(xpose, 1, 'CA'),
       [-2.33104726, -4.58076386, -11.17135244],
@@ -37,11 +38,13 @@ def test_xtal_build_p213():
       util.coord_find(xpose, 3, 'CA'),
       [-5.3331455, -4.53568805, -16.09169707],
    )
+   print('verify space group and unit cell')
    assert xpose.pdb_info().crystinfo().spacegroup() == 'P 21 3'
    assert np.allclose(xpose.pdb_info().crystinfo().A(), 30.354578479691444)
 
-   print('test_xtal_build_p213')
+   # print('test_xtal_build_p213')
 
+   print('verify xtal alignment')
    xalign_should_be = np.array([
       [-0.47930882, -0.6610066, 0.57735027, -7.73090447],
       [0.81210292, -0.08459031, 0.57735027, -7.73090447],
@@ -51,5 +54,4 @@ def test_xtal_build_p213():
    assert np.allclose(xalign, xalign_should_be, atol=1e-5)
 
 if __name__ == '__main__':
-   print('MAIN')
    test_xtal_build_p213()

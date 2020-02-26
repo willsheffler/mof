@@ -18,11 +18,11 @@ def main():
 
    sym_of_ligand = dict(HZ3='C3', DHZ3='C3', HZ4='C4', DHZ4='C4', HZD='D2', DHZD='D2')
 
-   ligands = ['HZ3', 'DHZ3']
-   xspec = xtal_spec.get_xtal_spec('p213')
+   # ligands = ['HZ3', 'DHZ3']
+   # xspec = xtal_spec.get_xtal_spec('p213')
 
-   # ligands = ['HZ4', 'DHZ4']
-   # xspec = xtal_spec.get_xtal_spec('f432')
+   ligands = ['HZ4', 'DHZ4']
+   xspec = xtal_spec.get_xtal_spec('f432')
 
    # ligands = ['HZD', 'DHZD']
    # xspec = xtal_spec.get_xtal_spec(None)
@@ -141,6 +141,11 @@ def main():
                         print(metal_origin)
                         print(metal_sym_axis)
                         print('rp.Body(pose)')
+
+                        xalign, xpose, bodypdb = xtal_poses[0]
+                        print(xalign)
+                        xpose.dump_pdb('xtal_pose.pdb')
+
                         assert 0
 
                      for ixtal, (xalign, xtal_pose, body_pdb) in enumerate(xtal_poses):
