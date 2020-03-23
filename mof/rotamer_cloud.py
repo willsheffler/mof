@@ -1,7 +1,14 @@
 import numpy as np, rpxdock as rp
 from mof import util
-from mof.pyrosetta_init import make_1res_pose, get_dun_energy
+from mof.pyrosetta_init import make_1res_pose, get_dun_energy, rVec, xform_pose
 from abc import ABC, abstractmethod
+"""
+CONCERNS:
+
+how to handle multiple metal binding sides not covered by rotamers, as in GLU
+
+how to hangle CYS chi2, which is based on HG being free-ish to rotate
+"""
 
 class RotamerCloud(ABC):
    """holds transforms for a set of rotamers positioned at the origin"""
@@ -11,45 +18,96 @@ class RotamerCloud(ABC):
          rotchi=None,
          exchi=[30, 5],
          max_dun_score=4.0,
+         grid=None,
    ):
       super(RotamerCloud, self).__init__()
       self.amino_acid = amino_acid
       pose = make_1res_pose(amino_acid)
       if rotchi is None:
-         rotchi = util.get_rotamers(pose.residue(1))
-         rotchi = np.array([list(x) for x in rotchi])
-         # print(rotchi)
-         # print(rotchi.shape)
+         if grid is None:
+            rotchi = util.get_rotamers(pose.residue(1))
+            rotchi = np.array([list(x) for x in rotchi])
+         else:
+            mesh = np.meshgrid(*grid, indexing='ij')
+            rotchi = np.stack(mesh, axis=len(mesh))
+            rotchi = rotchi.reshape(-1, len(mesh))
+
+      # print(rotchi)
+      # print(rotchi.shape)
       assert len(rotchi), 'no chi angles specified'
-      self.rotchi = rotchi
-      self.rotorigin = _get_stub_1res(pose)
-      rot_to_origin = np.linalg.inv(self.rotorigin)
-      self.rotbin = []
-      self.rotscore = []
-      rotframes = []
-      for irot, chis in enumerate(self.rotchi):
+      self.original_rotchi = rotchi
+      self.original_origin = _get_stub_1res(pose)
+      xform_pose(pose, np.linalg.inv(self.original_origin))
+      self.rotchi = list()
+      self.rotbin = list()
+      self.rotscore = list()
+      rotframes = list()
+      for irot, chis in enumerate(rotchi):
          for ichi, chi in enumerate(chis):
             pose.set_chi(ichi + 1, 1, chi)
+         dun = get_dun_energy(pose, 1)
+         if dun > max_dun_score: continue
+         # print('rot', irot, dun, chis)
          self.rotbin.append(irot)
-         self.rotscore.append(get_dun_energy(pose, 1))
-         endframe = self.get_effector_frame(pose.residue(1))
-         rotframes.append(rot_to_origin @ endframe)
+         self.rotchi.append(chis)
+         self.rotscore.append(dun)
+         rotframes.append(self.get_effector_frame(pose.residue(1)))
 
-         # hacky test for only one specific case...rot_to_origin
+         # hacky test for only one specific case...self.to_origin
          # this will fail in general, so comment it out
-         assert np.allclose([x for x in pose.residue(1).xyz('VZN')],
-                            (self.rotorigin @ rotframes[-1][:, 3])[:3])
+         # assert np.allclose([x for x in pose.residue(1).xyz('VZN')],
+         #      (self.origin @ rotframes[-1][:, 3])[:3])
+      assert self.rotbin, 'no chi angles pass dun cut'
 
+      self.rotbin = np.array(self.rotbin)
+      self.rotscore = np.array(self.rotscore)
+      self.rotchi = np.stack(self.rotchi)
       self.rotframes = np.stack(rotframes)
       self.pose1res = pose
+
+      print('RotamerCloud', self.amino_acid, self.rotchi.shape)
 
    @abstractmethod
    def get_effector_frame(self, residue):
       pass
 
-class RotamerCloudHisZn(RotamerCloud):
+   def dump_pdb(self, path=None, position=np.eye(4)):
+      if path is None: path = self.amino_acid + '.pdb'
+      res = self.pose1res.residue(1)
+      natm = res.natoms()
+      F = rp.io.pdb_format_atom
+      with open(path, 'w') as out:
+         for irot, chis in enumerate(self.rotchi):
+            out.write('MODEL %i\n' % irot)
+            for ichi, chi in enumerate(chis):
+               res.set_chi(ichi + 1, chi)
+            for ia in range(1, natm + 1):
+               xyz = res.xyz(ia)
+               line = F(ia=ia, ir=1, an=res.atom_name(ia), rn=res.name3(), c='A',
+                        xyz=np.array([xyz[0], xyz[1], xyz[2]]))
+               out.write(line)
+            orig = self.rotframes[irot, :3, 3]
+            x = orig + 2 * self.rotframes[irot, :3, 0]
+            y = orig + 2 * self.rotframes[irot, :3, 1]
+            z = orig + 2 * self.rotframes[irot, :3, 2]
+            # print(self.rotframes[irot])
+            # print(orig)
+            # print(x)
+            # print(y)
+            # print(z)
+            # assert 0
+            out.write(F(ia=natm + 1, ir=1, an='ORIG', rn='END', c='B', xyz=orig))
+            out.write(F(ia=natm + 2, ir=1, an='XDIR', rn='END', c='B', xyz=x, elem='O'))
+            out.write(F(ia=natm + 3, ir=1, an='YDIR', rn='END', c='B', xyz=y, elem='CL'))
+            out.write(F(ia=natm + 4, ir=1, an='ZDIR', rn='END', c='B', xyz=z, elem='N'))
+            out.write('ENDMDL\n')
+
+# def pdb_format_atom(ia=0, an="ATOM", idx=" ", rn="RES", c="A", ir=0, insert=" ", x=0, y=0, z=0,
+# occ=1, b=1, elem=" ", xyz=None):
+
+class RotamerCloudHisZN(RotamerCloud):
    def __init__(self, *args, **kw):
-      super(RotamerCloudHisZn, self).__init__('HZD', *args, **kw)
+      super(RotamerCloudHisZN, self).__init__('HZD', *args, **kw)
 
    def get_effector_frame(self, residue):
       return rp.motif.frames.stub_from_points(
@@ -57,6 +115,30 @@ class RotamerCloudHisZn(RotamerCloud):
          residue.xyz('NE2'),
          residue.xyz('CE1'),
       ).squeeze()
+
+class RotamerCloudCysZN(RotamerCloud):
+   def __init__(self, *args, **kw):
+      super(RotamerCloudCysZN, self).__init__('CYS', *args, **kw)
+
+   def get_effector_frame(self, residue):
+      hg = residue.xyz('HG')
+      sg = residue.xyz('SG')
+      cb = residue.xyz('CB')
+      orig = (hg - sg).normalized()
+      orig = orig + orig + sg  # stupid pyrosetta... can't do orig * 2.0 ...
+      return rp.motif.frames.stub_from_points(orig, sg, cb).squeeze()
+
+class RotamerCloudGluZN(RotamerCloud):
+   def __init__(self, *args, **kw):
+      super(RotamerCloudGluZN, self).__init__('GLU', *args, **kw)
+
+   def get_effector_frame(self, residue):
+      cd = residue.xyz('CD')
+      oe1 = residue.xyz('OE1')
+      oe2 = residue.xyz('OE2')
+      orig = (oe1 - oe2).normalized()
+      orig = orig + orig + oe1  # stupid pyrosetta... can't do orig * 2.14 ...
+      return rp.motif.frames.stub_from_points(orig, oe1, cd).squeeze()
 
 def _get_stub_1res(pose):
    res = pose.residue(1)

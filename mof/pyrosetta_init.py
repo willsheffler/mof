@@ -1,7 +1,10 @@
-import pyrosetta
+import pyrosetta, numpy as np
 from pyrosetta import rosetta
 from pyrosetta.rosetta import core
 from mof import data
+
+from pyrosetta.rosetta.numeric import xyzVector_double_t as rVec
+from pyrosetta.rosetta.numeric import xyzMatrix_double_t as rMat
 
 pyrosetta_flags = f'-mute all -output_virtual -extra_res_fa {data.HZ3_params} {data.HZ4_params} {data.HZD_params} -preserve_crystinfo'
 
@@ -32,6 +35,15 @@ def make_1res_pose(resn):
    pose = core.pose.Pose()
    pose.append_residue_by_jump(res, 0)
    return pose
+
+def xform_pose(pose, xform):
+   for ir in range(1, len(pose) + 1):
+      res = pose.residue(ir)
+      for ia in range(1, res.natoms() + 1):
+         old = res.xyz(ia)
+         old = np.array([old[0], old[1], old[2], 1])
+         new = xform @ old
+         res.set_xyz(ia, rVec(new[0], new[1], new[2]))
 
 aa1 = "ACDEFGHIKLMNPQRSTVWY"
 aa123 = dict(
