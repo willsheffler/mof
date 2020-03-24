@@ -10,33 +10,30 @@ def test_rotamer_cloud_his():
 
    rotcloud = RotamerCloudHisZN(grid=chis, max_dun_score=4.0)
 
-   # print(rotcloud.rotframes.shape)
-   # print(rotcloud.rotframes)
-   # assert rotcloud.rotframes.shape == (14, 4, 4)
+   assert rotcloud.rotchi.shape == (149, 3)
+   assert rotcloud.rotframes.shape == (149, 4, 4)
 
-   rotcloud.dump_pdb('cloud_his.pdb')
+   # rotcloud.dump_pdb('cloud_his.pdb')
 
 def test_rotamer_cloud_cys():
 
    chis = [np.arange(-180, 180, 6), np.arange(-180, 180, 8)]
    rotcloud = RotamerCloudCysZN(grid=chis, max_dun_score=3.0)
 
-   # print(rotcloud.rotframes.shape)
-   # print(rotcloud.rotframes)
-   # assert rotcloud.rotframes.shape == (14, 4, 4)
+   assert rotcloud.rotchi.shape == (540, 2)
+   assert rotcloud.rotframes.shape == (540, 4, 4)
 
-   rotcloud.dump_pdb('cloud_cys.pdb')
+   # rotcloud.dump_pdb('cloud_cys.pdb')
 
 def test_rotamer_cloud_glu():
 
    chis = [np.arange(-180, 180, 5), np.arange(-180, 180, 10), np.arange(-180, 180, 5)]
    rotcloud = RotamerCloudGluZN(grid=chis, max_dun_score=5.0)
 
-   # print(rotcloud.rotframes.shape)
-   # print(rotcloud.rotframes)
-   # assert rotcloud.rotframes.shape == (14, 4, 4)
+   assert rotcloud.rotchi.shape == (848, 3)
+   assert rotcloud.rotframes.shape == (848, 4, 4)
 
-   rotcloud.dump_pdb('cloud_glu.pdb')
+   # rotcloud.dump_pdb('cloud_glu.pdb')
 
 if __name__ == '__main__':
    test_rotamer_cloud_his()

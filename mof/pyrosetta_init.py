@@ -37,7 +37,7 @@ def make_1res_pose(resn):
    return pose
 
 def xform_pose(pose, xform):
-   for ir in range(1, len(pose) + 1):
+   for ir in range(1, len(pose.residues) + 1):
       res = pose.residue(ir)
       for ia in range(1, res.natoms() + 1):
          old = res.xyz(ia)
