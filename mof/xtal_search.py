@@ -205,6 +205,7 @@ def xtal_search_two_residues(search_spec, pose, rotcloud1, rotcloud2, debug):
             hits = np.argwhere(hits)
             print(dist.shape, len(rotcloud1), len(rotcloud2))
             print(hits[0, 0], hits[0, 1])
+            print(dist[hits[0, 0], hits[0, 1]], angerr[hits[0, 0], hits[0, 1]])
             rotcloud1.dump_pdb('test1.pdb', stub1, which=hits[0, 0])
             rotcloud2.dump_pdb('test2.pdb', stub2, which=hits[0, 1])
             rpxbody.dump_pdb('test.pdb')
