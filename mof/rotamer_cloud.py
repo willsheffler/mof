@@ -1,4 +1,4 @@
-import numpy as np, rpxdock as rp
+import numpy as np, rpxdock as rp, copy
 from mof import util
 from mof.pyrosetta_init import make_1res_pose, get_dun_energy, rVec, xform_pose
 from abc import ABC, abstractmethod
@@ -65,6 +65,14 @@ class RotamerCloud(ABC):
       self.pose1res = pose
 
       print('RotamerCloud', self.amino_acid, self.rotchi.shape)
+
+   def subset(self, which):
+      new_one = copy.copy(self)
+      new_one.rotchi = self.rotchi[which]
+      new_one.rotbin = self.rotbin[which]
+      new_one.rotscore = self.rotscore[which]
+      new_one.rotframes = self.rotframes[which]
+      return new_one
 
    @abstractmethod
    def get_effector_frame(self, residue):
@@ -134,8 +142,22 @@ class RotamerCloudCysZN(RotamerCloud):
       sg = residue.xyz('SG')
       cb = residue.xyz('CB')
       orig = (hg - sg).normalized()
-      orig = orig + orig + sg  # stupid pyrosetta... can't do orig * 2.0 ...
+      for i in range(3):
+         orig[i] = orig[i] * 2.32 + sg[i]
       return rp.motif.frames.stub_from_points(orig, sg, cb).squeeze()
+
+class RotamerCloudAspZN(RotamerCloud):
+   def __init__(self, *args, **kw):
+      super(RotamerCloudAspZN, self).__init__('ASP', *args, **kw)
+
+   def get_effector_frame(self, residue):
+      cg = residue.xyz('CG')
+      od1 = residue.xyz('OD1')
+      od2 = residue.xyz('OD2')
+      orig = (od1 - od2).normalized()
+      for i in range(3):
+         orig[i] = orig[i] * 2.1 + od1[i]
+      return rp.motif.frames.stub_from_points(orig, od1, cg).squeeze()
 
 class RotamerCloudGluZN(RotamerCloud):
    def __init__(self, *args, **kw):
@@ -146,7 +168,8 @@ class RotamerCloudGluZN(RotamerCloud):
       oe1 = residue.xyz('OE1')
       oe2 = residue.xyz('OE2')
       orig = (oe1 - oe2).normalized()
-      orig = orig + orig + oe1  # stupid pyrosetta... can't do orig * 2.14 ...
+      for i in range(3):
+         orig[i] = orig[i] * 1.83 + oe1[i]
       return rp.motif.frames.stub_from_points(orig, oe1, cd).squeeze()
 
 def _get_stub_1res(pose):

@@ -171,6 +171,23 @@ def minimize(pose, sfxn):
    for i in range(5):
       minmover.apply(pose)
 
+def mutate_two_res(pose, ires1, aa1, chis1, ires2, aa2, chis2):
+   pose = pose.clone()
+   mut = rosetta.protocols.simple_moves.MutateResidue()
+   mut.set_res_name(aa1)
+   mut.set_target(ires1)
+   mut.set_preserve_atom_coords(False)
+   mut.apply(pose)
+   for ichi, chi in enumerate(chis1):
+      pose.set_chi(ichi + 1, ires1, chi)
+   mut.set_res_name(aa2)
+   mut.set_target(ires2)
+   mut.set_preserve_atom_coords(False)
+   mut.apply(pose)
+   for ichi, chi in enumerate(chis2):
+      pose.set_chi(ichi + 1, ires2, chi)
+   return pose
+
 def mut_to_ligand(pose, residue, ligands, sym_of_ligand, debug=False):
    # For a given pose, attempts to mutate each residue (one at a time) to a new residue from my list of ligands
    # Returns a dictionary, LIG_poses, that contains all of the new poses with mutated residue positions

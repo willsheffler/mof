@@ -6,6 +6,11 @@ _DEBUG = False
 
 def main():
 
+   arg = rp.Bunch()
+   arg.dist_err_tolerance = 0.8
+   arg.angle_err_tolerance = 15.0
+   arg.min_dist_to_z_axis = 6.0
+
    # ligands = ['HZ4', 'DHZ4']
    # xspec = xtal_spec.get_xtal_spec('f432')
    # ligands = ['HZD', 'DHZD']
@@ -33,37 +38,35 @@ def main():
 
    tmp_cache_file = 'tmp_cache.pickle'
    if os.path.exists(tmp_cache_file):
-      rotcloud1, rotcloud2 = rp.util.load(tmp_cache_file)
+      rc_his, rc_cys, rc_asp, rc_glu = rp.util.load(tmp_cache_file)
    else:
-      rotcloud1 = mof.rotamer_cloud.RotamerCloudHisZN(
-         grid=[
-            np.arange(-180, 180, 2),
-            np.arange(-180, 180, 6),
-            [-90],
-         ],
-         max_dun_score=4.0,
-      )
-      rotcloud2 = mof.rotamer_cloud.RotamerCloudGluZN(
-         grid=[
-            np.arange(-180, 180, 3),
-            np.arange(-180, 180, 6),
-            np.arange(-180, 180, 3),
-         ],
-         max_dun_score=5.0,
-      )
-      rp.util.dump((rotcloud1, rotcloud2), tmp_cache_file)
+      chis = [np.arange(-180, 180, 5), np.arange(-180, 180, 10), [-90]]
+      rc_his = mof.rotamer_cloud.RotamerCloudHisZN(grid=chis, max_dun_score=5.0)
+      chis = [np.arange(-180, 180, 10), np.arange(-180, 180, 13)]
+      rc_cys = mof.rotamer_cloud.RotamerCloudCysZN(grid=chis, max_dun_score=4.0)
+      chis = [np.arange(-180, 180, 10), np.arange(-180, 180, 7)]
+      rc_asp = mof.rotamer_cloud.RotamerCloudAspZN(grid=chis, max_dun_score=5.0)
+      chis = [np.arange(-180, 180, 7), np.arange(-180, 180, 14), np.arange(-180, 180, 7)]
+      rc_glu = mof.rotamer_cloud.RotamerCloudGluZN(grid=chis, max_dun_score=6.0)
+      rp.util.dump([rc_his, rc_cys, rc_asp, rc_glu], tmp_cache_file)
 
    for pose in prepped_pdb_gen:
       if False:
          r = mof.xtal_search.xtal_search_single_residue(search_spec, pose, debug=_DEBUG)
       else:
-         r = mof.xtal_search.xtal_search_two_residues(
-            search_spec,
-            pose,
-            rotcloud1,
-            rotcloud2,
-            debug=_DEBUG,
-         )
+         for rc1, rc2 in [
+            (rc_his, rc_his),
+            (rc_his, rc_cys),
+            (rc_asp, rc_his),
+            (rc_his, rc_glu),
+            (rc_cys, rc_cys),
+            (rc_asp, rc_cys),
+            (rc_cys, rc_glu),
+            (rc_asp, rc_asp),
+            (rc_asp, rc_glu),
+            (rc_glu, rc_glu),
+         ]:
+            r = mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg)
       results.extend(r)
 
    if not results:
