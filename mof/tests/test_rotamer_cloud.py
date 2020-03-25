@@ -13,7 +13,7 @@ def test_rotamer_cloud_his():
    assert rotcloud.rotchi.shape == (149, 3)
    assert rotcloud.rotframes.shape == (149, 4, 4)
 
-   # rotcloud.dump_pdb('cloud_his.pdb')
+   rotcloud.dump_pdb('cloud_his.pdb')
 
 def test_rotamer_cloud_cys():
 
@@ -23,7 +23,7 @@ def test_rotamer_cloud_cys():
    assert rotcloud.rotchi.shape == (540, 2)
    assert rotcloud.rotframes.shape == (540, 4, 4)
 
-   # rotcloud.dump_pdb('cloud_cys.pdb')
+   rotcloud.dump_pdb('cloud_cys.pdb')
 
 def test_rotamer_cloud_glu():
 
@@ -33,7 +33,7 @@ def test_rotamer_cloud_glu():
    assert rotcloud.rotchi.shape == (848, 3)
    assert rotcloud.rotframes.shape == (848, 4, 4)
 
-   # rotcloud.dump_pdb('cloud_glu.pdb')
+   rotcloud.dump_pdb('cloud_glu.pdb')
 
 if __name__ == '__main__':
    test_rotamer_cloud_his()

@@ -5,6 +5,7 @@ from mof import data
 
 from pyrosetta.rosetta.numeric import xyzVector_double_t as rVec
 from pyrosetta.rosetta.numeric import xyzMatrix_double_t as rMat
+from pyrosetta import AtomID
 
 pyrosetta_flags = f'-mute all -output_virtual -extra_res_fa {data.HZ3_params} {data.HZ4_params} {data.HZD_params} -preserve_crystinfo'
 
@@ -43,7 +44,7 @@ def xform_pose(pose, xform):
          old = res.xyz(ia)
          old = np.array([old[0], old[1], old[2], 1])
          new = xform @ old
-         res.set_xyz(ia, rVec(new[0], new[1], new[2]))
+         pose.set_xyz(AtomID(ia, ir), rVec(new[0], new[1], new[2]))
 
 aa1 = "ACDEFGHIKLMNPQRSTVWY"
 aa123 = dict(

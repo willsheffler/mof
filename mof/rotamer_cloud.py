@@ -16,7 +16,6 @@ class RotamerCloud(ABC):
          self,
          amino_acid,
          rotchi=None,
-         exchi=[30, 5],
          max_dun_score=4.0,
          grid=None,
    ):
@@ -71,25 +70,32 @@ class RotamerCloud(ABC):
    def get_effector_frame(self, residue):
       pass
 
-   def dump_pdb(self, path=None, position=np.eye(4)):
+   def dump_pdb(self, path=None, position=np.eye(4), which=None):
       if path is None: path = self.amino_acid + '.pdb'
       res = self.pose1res.residue(1)
       natm = res.natoms()
       F = rp.io.pdb_format_atom
       with open(path, 'w') as out:
-         for irot, chis in enumerate(self.rotchi):
+         loopey_doodle = enumerate(self.rotchi)
+         if which is not None:
+            loopey_doodle = ((which, self.rotchi[which]), )
+         for irot, chis in loopey_doodle:
             out.write('MODEL %i\n' % irot)
             for ichi, chi in enumerate(chis):
                res.set_chi(ichi + 1, chi)
             for ia in range(1, natm + 1):
                xyz = res.xyz(ia)
-               line = F(ia=ia, ir=1, an=res.atom_name(ia), rn=res.name3(), c='A',
-                        xyz=np.array([xyz[0], xyz[1], xyz[2]]))
+               xyz = position @ np.array([xyz[0], xyz[1], xyz[2], 1])
+               line = F(ia=ia, ir=1, an=res.atom_name(ia), rn=res.name3(), c='A', xyz=xyz)
                out.write(line)
-            orig = self.rotframes[irot, :3, 3]
-            x = orig + 2 * self.rotframes[irot, :3, 0]
-            y = orig + 2 * self.rotframes[irot, :3, 1]
-            z = orig + 2 * self.rotframes[irot, :3, 2]
+            orig = self.rotframes[irot, :, 3]
+            x = orig + 2 * self.rotframes[irot, :, 0]
+            y = orig + 2 * self.rotframes[irot, :, 1]
+            z = orig + 2 * self.rotframes[irot, :, 2]
+            orig = position @ orig
+            x = position @ x
+            y = position @ y
+            z = position @ z
             # print(self.rotframes[irot])
             # print(orig)
             # print(x)
@@ -101,6 +107,9 @@ class RotamerCloud(ABC):
             out.write(F(ia=natm + 3, ir=1, an='YDIR', rn='END', c='B', xyz=y, elem='CL'))
             out.write(F(ia=natm + 4, ir=1, an='ZDIR', rn='END', c='B', xyz=z, elem='N'))
             out.write('ENDMDL\n')
+
+   def __len__(self):
+      return len(self.rotchi)
 
 # def pdb_format_atom(ia=0, an="ATOM", idx=" ", rn="RES", c="A", ir=0, insert=" ", x=0, y=0, z=0,
 # occ=1, b=1, elem=" ", xyz=None):

@@ -15,7 +15,7 @@ _overrides = {
 }
 
 _file_mappings = {
-   #   "dockspec.py": ["rpxdock/tests/search/test_onecomp.py"],
+   "xtal_search.py": ["mof/main.py"],
 }
 _post = defaultdict(lambda: "")
 
