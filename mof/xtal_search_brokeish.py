@@ -23,10 +23,8 @@ class XtalSearchSpec(object):
       self.rts = self.chm.residue_type_set('fa_standard')
       self.dun_sfxn = rt.core.scoring.ScoreFunction()
       self.dun_sfxn.set_weight(rt.core.scoring.ScoreType.fa_dun, 1.0)
-      self.sfxn_filter = rt.core.scoring.ScoreFunction()
-      self.sfxn_filter.set_weight(rt.core.scoring.ScoreType.fa_atr, 1.00)
-      self.sfxn_filter.set_weight(rt.core.scoring.ScoreType.fa_rep, 0.55)
-      # self.sfxn_filter = rt.core.scoring.get_score_function()
+      self.rep_sfxn = rt.core.scoring.ScoreFunction()
+      self.rep_sfxn.set_weight(rt.core.scoring.ScoreType.fa_rep, 1.0)
 
 def xtal_search_two_residues(
       search_spec,
@@ -34,11 +32,8 @@ def xtal_search_two_residues(
       rotcloud1base,
       rotcloud2base,
       err_tolerance=1.5,
-      dist_err_tolerance=1.0,
-      angle_err_tolerance=15,
       min_dist_to_z_axis=6.0,
       sym_axes_angle_tolerance=3.0,
-      angle_to_cart_err_ratio=20.0,
       **arg,
 ):
    arg = rp.Bunch(arg)
@@ -48,9 +43,7 @@ def xtal_search_two_residues(
 
    results = list()
 
-   dont_replace_these_aas = [spec.rts.name_map('CYS'), spec.rts.name_map('PRO')]
-
-   farep_orig = search_spec.sfxn_filter(pose)
+   farep_orig = search_spec.rep_sfxn(pose)
 
    p_n = pose.pdb_info().name().split('/')[-1]
    # gets rid of the ".pdb" at the end of the pdb name
@@ -74,7 +67,7 @@ def xtal_search_two_residues(
 
    for ires1 in range(1, asym_nres + 1):
       # if pose.residue_type(ires1) not in (spec.rts.name_map('ALA'), spec.rts.name_map('DALA')):
-      if pose.residue_type(ires1) in dont_replace_these_aas:
+      if pose.residue_type(ires1) != spec.rts.name_map('ALA'):
          continue
       stub1 = rpxbody.stub[ires1 - 1]
 
@@ -88,8 +81,8 @@ def xtal_search_two_residues(
       range2 = range(1, int(total_res) + 1)
       if rotcloud1base is rotcloud2base: range2 = range(ires1 + 1, int(total_res) + 1)
       for ires2 in range2:
-         if ires1 == ((ires2 - 1) % asym_nres + 1): continue
-         if pose.residue_type(ires2) in dont_replace_these_aas:
+         if ires1 == ires2 % asym_nres: continue
+         if pose.residue_type(ires2) != spec.rts.name_map('ALA'):
             continue
          stub2 = rpxbody.stub[ires2 - 1]
          # rotcloud2.dump_pdb(f'cloud_b_{ires2:02}.pdb', position=stub2)
@@ -107,26 +100,19 @@ def xtal_search_two_residues(
          dot = np.sum(
             rotframes1[:, :, 0].reshape(-1, 1, 4) * rotframes2[:, :, 0].reshape(1, -1, 4), axis=2)
          ang = np.degrees(np.arccos(dot))
-         ang_delta = np.abs(ang - 109.4712206)
-         err = np.sqrt((ang_delta / angle_to_cart_err_ratio)**2 + dist**2)
-         rot1err2 = np.min(err, axis=1)
+         angerr = np.abs(ang - 107)
+         err = angerr / 15.0 + dist
+         rot1err = np.min(err, axis=1)
          bestrot2 = np.argmin(err, axis=1)
-         disterr = dist[np.arange(len(bestrot2)), bestrot2]
-         angerr = ang_delta[np.arange(len(bestrot2)), bestrot2]
-         ok = ((rot1err2 < err_tolerance) * (angerr < angle_err_tolerance) *
-               (disterr < dist_err_tolerance))
-         # ok = rot1err2 < err_tolerance
-         # ok = disterr < dist_err_tolerance
-         # ok = angerr < angle_err_tolerance
-         hits1 = np.argwhere(ok).reshape(-1)
+         hits1 = np.argwhere(rot1err < err_tolerance).reshape(-1)
 
-         # hits = (ang_delta < angle_err_tolerance) * (dist < dist_err_tolerance)
+         # hits = (angerr < angle_err_tolerance) * (dist < dist_err_tolerance)
          if len(hits1):
             # print(rotcloud1.amino_acid, rotcloud2.amino_acid, ires1, ires2)
             hits2 = bestrot2[hits1]
             hits = np.stack([hits1, hits2], axis=1)
             # print(
-            # f'stats {ires1:2} {ires2:2} {np.sum(ang_delta < 10):7} {np.sum(dist < 1.0):5} {np.sum(hits):3}'
+            # f'stats {ires1:2} {ires2:2} {np.sum(angerr < 10):7} {np.sum(dist < 1.0):5} {np.sum(hits):3}'
             # )
             for ihit, hit in enumerate(hits):
                frame1 = rotframes1[hit[0]]
@@ -138,33 +124,19 @@ def xtal_search_two_residues(
                metalaxis2 = rp.homog.hrot(parl, -45) @ perp
                symang1 = rp.homog.line_angle(metalaxis1, spec.pept_axis)
                symang2 = rp.homog.line_angle(metalaxis2, spec.pept_axis)
-               match1 = np.abs(np.degrees(symang1) - xspec.dihedral) < sym_axes_angle_tolerance
-               match2 = np.abs(np.degrees(symang2) - xspec.dihedral) < sym_axes_angle_tolerance
-               if not (match1 or match2): continue
-               matchsymang = symang1 if match1 else symang2
-               metal_axis = metalaxis1 if match1 else metalaxis2
-               if rp.homog.angle(metal_axis, spec.pept_axis) > np.pi / 2:
-                  metal_axis[:3] = -metal_axis[:3]
-               metal_pos = (rotframes1[hit[0], :, 3] + rotframes2[hit[1], :, 3]) / 2.0
+               match11 = np.abs(np.degrees(symang1) - 35.26) < sym_axes_angle_tolerance
+               match12 = np.abs(np.degrees(symang2) - 35.26) < sym_axes_angle_tolerance
+               match21 = np.abs(np.degrees(symang1) - 54.735) < sym_axes_angle_tolerance
+               match22 = np.abs(np.degrees(symang2) - 54.735) < sym_axes_angle_tolerance
+               if not (match11 or match12 or match12 or match22): continue
+               matchsymang = symang1 if (match11 or match21) else symang2
+               metalaxis = metalaxis1 if (match11 or match21) else metalaxis2
 
-               correction_axis = rp.homog.hcross(metal_axis, spec.pept_axis)
-               correction_angle = np.abs(matchsymang - np.radians(xspec.dihedral))
-               # print('target', xspec.dihedral, '---------------------')
-               # print(np.degrees(correction_angle))
-               # print(np.degrees(matchsymang))
-               # print('before', rp.homog.angle_degrees(metal_axis, spec.pept_axis))
-               for why_do_i_need_this in (-correction_angle, correction_angle):
-                  metal_axis_try = rp.homog.hrot(correction_axis, why_do_i_need_this) @ metal_axis
-                  if np.allclose(rp.homog.angle_degrees(metal_axis_try, spec.pept_axis),
-                                 xspec.dihedral, atol=0.001):
-                     metal_axis = metal_axis_try
-                     break
-               # print('after ', rp.homog.angle_degrees(metal_axis, spec.pept_axis))
-
-               assert np.allclose(rp.homog.angle_degrees(metal_axis, spec.pept_axis),
-                                  xspec.dihedral)
-
-               pose2mut = mof.util.mutate_two_res(
+               metal_pos = (rotframes1[hit[0], :3, 3] + rotframes2[hit[1], :3, 3]) / 2.0
+               metalaxispos = metal_pos + metalaxis[:3] + metalaxis[:3]
+               # metal_dist_z = np.sqrt(metal_pos[0]**2 + metal_pos[1]**2)
+               # if metal_dist_z < 4.0: continue
+               pose2 = mof.util.mutate_two_res(
                   pose,
                   ires1,
                   rotcloud1.amino_acid,
@@ -172,56 +144,20 @@ def xtal_search_two_residues(
                   ires2,
                   rotcloud2.amino_acid,
                   rotcloud2.rotchi[hit[1]],
-                  sym_num,
                )
+               if pose2.residue(ires1).has('VZN'):
+                  pose2.set_xyz(AtomID(pose2.residue(ires1).atom_index('VZN'), ires1),
+                                rVec(metal_pos[0], metal_pos[1], metal_pos[2]))
+                  pose2.set_xyz(AtomID(pose2.residue(ires1).atom_index('HZ'), ires1),
+                                rVec(metalaxispos[0], metalaxispos[1], metalaxispos[2]))
 
-               search_spec.sfxn_filter(pose2mut)
-               sc_2res = (pose2mut.energies().residue_total_energy(ires1) +
-                          pose2mut.energies().residue_total_energy(ires2))
-               sc_2res_orig = (pose.energies().residue_total_energy(ires1) +
-                               pose.energies().residue_total_energy(ires2))
-               if sc_2res - sc_2res_orig > 5.0: continue
-
-               tag = ('hit_%s_%s_%i_%i_%i' %
-                      (rotcloud1.amino_acid, rotcloud2.amino_acid, ires1, ires2, ihit))
-
-               xtal_poses = mof.xtal_build.xtal_build(
-                  pdb_name,
-                  xspec,
-                  pose2mut,
-                  peptide_sym,
-                  spec.pept_orig,
-                  spec.pept_axis,
-                  'C2',
-                  metal_pos,
-                  metal_axis,
-                  rpxbody,
-                  tag,
-                  debug=False,
-               )
-               for Xalign, xtal_pose, rpxbody_pdb in xtal_poses:
-                  xtal_pose.dump_pdb(tag + '_xtal.pdb')
-                  rp.util.dump_str(rpxbody_pdb, tag + '_clashcheck.pdb')
-
-               # assert 0
-
-               for ixtal, (xalign, xtal_pose, body_pdb) in enumerate(xtal_poses):
-                  celldim = xtal_pose.pdb_info().crystinfo().A()
-                  fname = f"{xspec.spacegroup.replace(' ','_')}_cell{int(celldim):03}_{tag}"
-                  results.append(
-                     mof.result.Result(
-                        xspec,
-                        fname,
-                        xalign,
-                        rpxbody,
-                        xtal_pose,
-                        body_pdb,
-                     ))
-
-               metalaxispos = metal_pos[:3] + metal_axis[:3] + metal_axis[:3] + metal_axis[:3]
-               hokey_position_atoms(pose2mut, ires1, ires2, metal_pos, metalaxispos)
-
-               ### debug crap
+               elif pose2.residue(ires2).has('VZN'):
+                  pose2.set_xyz(AtomID(pose2.residue(ires2).atom_index('VZN'), ires2),
+                                rVec(metal_pos[0], metal_pos[1], metal_pos[2]))
+                  pose2.set_xyz(AtomID(pose2.residue(ires2).atom_index('HZ'), ires2),
+                                rVec(metalaxispos[0], metalaxispos[1], metalaxispos[2]))
+               farep_delta = search_spec.rep_sfxn(pose2) - farep_orig
+               if farep_delta > 1.0: continue
                print(
                   "HIT",
                   rotcloud1.amino_acid,
@@ -232,16 +168,15 @@ def xtal_search_two_residues(
                   hit,
                   rotcloud1.rotchi[hit[0]],
                   rotcloud2.rotchi[hit[1]],
-                  # sc_2res,
+                  # farep_delta,
                   np.round(dist[tuple(hit)], 3),
-                  np.round(ang_delta[tuple(hit)], 3),
-                  np.round(sc_2res - sc_2res_orig, 3),
+                  np.round(angerr[tuple(hit)], 3),
                )
-               # rotcloud1.dump_pdb(fn + '_a.pdb', stub1, which=hit[0])
-               # rotcloud2.dump_pdb(fn + '_b.pdb', stub2, which=hit[1])
-               # rpxbody2.dump_pdb(fn + '_sym.pdb')
-               pose2mut.dump_pdb(tag + '_debug_peptide.pdb')
-               ### end debug crap
+               fn = ('hit_%s_%s_%i_%i_%i.pdb' %
+                     (rotcloud1.amino_acid, rotcloud2.amino_acid, ires1, ires2, ihit))
+               rotcloud1.dump_pdb(fn + '_a.pdb', stub1, which=hit[0])
+               rotcloud2.dump_pdb(fn + '_b.pdb', stub2, which=hit[1])
+               pose2.dump_pdb(fn)
 
    return results
 
@@ -297,7 +232,8 @@ def xtal_search_single_residue(search_spec, pose, **arg):
                                 rVec(0, 0, +2))
 
             spec.dun_sfxn(rot_pose)
-            dun_score = rot_pose.energies().residue_total_energy(ires)
+            dun_score = rot_pose.energies().residue_total_energies(ires)[
+               rt.core.scoring.ScoreType.fa_dun]
             if dun_score >= spec.max_dun_score:
                bad_rots += 1
                continue
@@ -305,11 +241,11 @@ def xtal_search_single_residue(search_spec, pose, **arg):
 
             ############ fix this
 
-            metal_orig = hm.hpoint(util.coord_find(rot_pose, ires, 'VZN'))
+            metal_origin = hm.hpoint(util.coord_find(rot_pose, ires, 'VZN'))
             hz = hm.hpoint(util.coord_find(rot_pose, ires, 'HZ'))
             ne = hm.hpoint(util.coord_find(rot_pose, ires, 'VNE'))
-            metal_his_bond = hm.hnormalized(metal_orig - ne)
-            metal_sym_axis0 = hm.hnormalized(hz - metal_orig)
+            metal_his_bond = hm.hnormalized(metal_origin - ne)
+            metal_sym_axis0 = hm.hnormalized(hz - metal_origin)
             dihedral = xspec.dihedral
 
             ############# ...
@@ -334,11 +270,12 @@ def xtal_search_single_residue(search_spec, pose, **arg):
                   pdb_name,
                   xspec,
                   rot_pose,
+                  ires,
                   peptide_sym,
                   spec.pept_orig,
                   spec.pept_axis,
                   lig_sym,
-                  metal_orig,
+                  metal_origin,
                   metal_sym_axis,
                   rpxbody,
                   tag,
@@ -354,7 +291,7 @@ def xtal_search_single_residue(search_spec, pose, **arg):
                   print(spec.pept_orig)
                   print(spec.pept_axis)
                   print(lig_sym)
-                  print(metal_orig)
+                  print(metal_origin)
                   print(metal_sym_axis)
                   print('rp.Body(pose)')
 
@@ -383,50 +320,3 @@ def xtal_search_single_residue(search_spec, pose, **arg):
          continue
 
    return results
-
-def hokey_position_atoms(pose2, ires1, ires2, metal_pos, metalaxispos):
-   znres1, znres2 = None, None
-   #   if pose2.residue(ires1).name() == 'HZD':
-   #      znres1 = ires1
-   #      znatom1 = 'VZN'
-   #      axisatom1 = 'HZ'
-   #   elif pose2.residue(ires1).name3() == 'CYS':
-   #      znres1 = ires1
-   #      znatom1 = 'HG'
-   #      axisatom1 = '2HB'
-   #   elif pose2.residue(ires1).name3() == 'ASP':
-   #      znres1 = ires1
-   #      znatom1 = '1HB'
-   #      axisatom1 = '2HB'
-   #   elif pose2.residue(ires1).name3() == 'GLU':
-   #      znres1 = ires1
-   #      znatom1 = '1HG'
-   #      axisatom1 = '2HG'
-   #
-   #   if pose2.residue(ires2).name3() == 'HZD':
-   #      znres2 = ires2
-   #      znatom2 = 'VZN'
-   #      axisatom2 = 'HZ'
-   #   elif pose2.residue(ires2).name3() == 'CYS':
-   #      znres2 = ires2
-   #      znatom2 = 'HG'
-   #      axisatom2 = '2HB'
-   #   elif pose2.residue(ires2).name3() == 'ASP':
-   #      znres2 = ires2
-   #      znatom2 = '1HB'
-   #      axisatom2 = '2HB'
-   #   elif pose2.residue(ires2).name3() == 'GLU':
-   #      znres2 = ires2
-   #      znatom2 = '1HG'
-   #      axisatom2 = '2HG'
-   znres1 = ires1
-   znres2 = ires2
-   znatom1 = '1HB'
-   znatom2 = '1HB'
-   axisatom1 = '2HB'
-   axisatom2 = '2HB'
-   for znres, znatom, axisatom in [(znres1, znatom1, axisatom1), (znres2, znatom2, axisatom2)]:
-      pose2.set_xyz(AtomID(pose2.residue(znres).atom_index(znatom), znres),
-                    rVec(metal_pos[0], metal_pos[1], metal_pos[2]))
-      pose2.set_xyz(AtomID(pose2.residue(znres).atom_index(axisatom), znres),
-                    rVec(metalaxispos[0], metalaxispos[1], metalaxispos[2]))

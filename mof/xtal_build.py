@@ -10,7 +10,6 @@ def xtal_build(
       pdb_name,
       xspec,
       pose,
-      ires,
       peptide_sym,
       peptide_orig,
       peptide_axis,
@@ -51,9 +50,9 @@ def xtal_build(
       # assert np.allclose(orig1, [0, 0, 0, 1])
       assert sym1 == peptide_sym
       assert sym2 == metal_sym
-      swaped = False
+      swapped = False
       # axis1 = np.array([0.57735, 0.57735, 0.57735, 0])
-      assert 0, 'maybe ok, check this new branch'
+      # assert 0, 'maybe ok, check this new branch'
 
    if sym1 == peptide_sym:
       pt1, ax1 = peptide_orig, peptide_axis
@@ -67,6 +66,7 @@ def xtal_build(
    nfold1 = float(str(sym1)[1])
    nfold2 = float(str(sym2)[1])
 
+   # print(hm.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral))
    assert np.allclose(hm.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral))
    assert np.allclose(hm.line_angle(ax1, ax2), np.radians(dihedral))
 
@@ -98,15 +98,11 @@ def xtal_build(
    if celldim < xspec.min_cell_size:
       return []
 
-   print(f'{pdb_name} resi {ires:3} found xtal, celldim {celldim:7.3}')
-
    nsym = int(peptide_sym[1])
    assert pose.size() % nsym == 0
    nres_asym = pose.size() // nsym
    xtal_pose = rt.protocols.grafting.return_region(pose, 1, nres_asym)
 
-   # hz = coord_find(xtal_pose, ires, 'VZN') + 2 * metal_sym_axis[:3]
-   # xtal_pose.set_xyz(rt.core.id.AtomID(xtal_pose.residue(ires).atom_index('HZ'), ires),
    # rt.numeric.xyzVec(hz[0], hz[1], hz[2]))
 
    xtal_pose.apply_transform_Rx_plus_v(
@@ -164,10 +160,6 @@ def xtal_build(
    pi = rt.core.pose.PDBInfo(xtal_pose)
    pi.set_crystinfo(ci)
    xtal_pose.pdb_info(pi)
-
-   oldzn = hm.hpoint(util.coord_find(pose, ires, 'VZN'))
-   newzn = hm.hpoint(util.coord_find(xtal_pose, ires, 'VZN'))
-   assert np.allclose(newzn, Xalign @ oldzn, atol=0.001)
 
    # pose.dump_pdb('a_pose.pdb')
    # rp.util.dump_str(rpxbody_pdb, 'a_xtal_body.pdb')

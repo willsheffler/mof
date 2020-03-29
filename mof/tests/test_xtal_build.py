@@ -13,7 +13,6 @@ def test_xtal_build_p213():
       pdb_name='testpdb',
       xspec=xtal_spec.get_xtal_spec('p213'),
       pose=pose,
-      ires=1,
       peptide_sym='C3',
       peptide_orig=np.array([0, 0, 0, 1]),
       peptide_axis=np.array([0, 0, 1, 0]),

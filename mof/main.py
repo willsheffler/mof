@@ -7,20 +7,31 @@ _DEBUG = False
 def main():
 
    arg = rp.Bunch()
-   arg.dist_err_tolerance = 0.8
-   arg.angle_err_tolerance = 15.0
-   arg.min_dist_to_z_axis = 6.0
+   # arg.dist_err_tolerance = 0.8
+   # arg.angle_err_tolerance = 15.0
+   # arg.min_dist_to_z_axis = 6.0
 
    # ligands = ['HZ4', 'DHZ4']
    # xspec = xtal_spec.get_xtal_spec('f432')
    # ligands = ['HZD', 'DHZD']
    # xspec = xtal_spec.get_xtal_spec(None)
    search_spec = mof.xtal_search.XtalSearchSpec(
-      spacegroup='p213',
+      spacegroup='i213',
       pept_orig=np.array([0, 0, 0, 1]),
       pept_axis=np.array([0, 0, 1, 0]),
       max_dun_score=4.0,
-      sym_of_ligand=dict(HZ3='C3', DHZ3='C3', HZ4='C4', DHZ4='C4', HZD='D2', DHZD='D2'),
+      sym_of_ligand=dict(
+         HZ3='C3',
+         DHZ3='C3',
+         HZ4='C4',
+         DHZ4='C4',
+         HZD='D2',
+         DHZD='D2',
+         # ASP='C2',
+         # CYS='C2',
+         # GLU='C2',
+         # HIS='C2',
+      ),
       ligands=['HZ3', 'DHZ3'],
    )
 
@@ -62,12 +73,12 @@ def main():
             (rc_cys, rc_cys),
             (rc_asp, rc_cys),
             (rc_cys, rc_glu),
-            (rc_asp, rc_asp),
-            (rc_asp, rc_glu),
-            (rc_glu, rc_glu),
+               # (rc_asp, rc_asp),
+               # (rc_asp, rc_glu),
+               # (rc_glu, rc_glu),
          ]:
             r = mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg)
-      results.extend(r)
+            results.extend(r)
 
    if not results:
       print('---- no results ----')
