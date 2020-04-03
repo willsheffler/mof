@@ -40,31 +40,37 @@ class RotamerCloud(ABC):
       self.rotchi = list()
       self.rotbin = list()
       self.rotscore = list()
-      rotframes = list()
+      self.frameidx = list()
+      self.rotframes = list()
       for irot, chis in enumerate(rotchi):
          for ichi, chi in enumerate(chis):
             pose.set_chi(ichi + 1, 1, chi)
          dun = get_dun_energy(pose, 1)
          if dun > max_dun_score: continue
          # print('rot', irot, dun, chis)
-         self.rotbin.append(irot)
-         self.rotchi.append(chis)
-         self.rotscore.append(dun)
-         rotframes.append(self.get_effector_frame(pose.residue(1)))
+         for iframe, frame in enumerate(self.get_effector_frame(pose.residue(1))):
+            self.rotbin.append(irot)
+            self.rotchi.append(chis)
+            self.rotscore.append(dun)
+            self.frameidx.append(iframe)
+            self.rotframes.append(frame)
 
          # hacky test for only one specific case...self.to_origin
          # this will fail in general, so comment it out
          # assert np.allclose([x for x in pose.residue(1).xyz('VZN')],
-         #      (self.origin @ rotframes[-1][:, 3])[:3])
+         #      (self.origin @ self.rotframes[-1][:, 3])[:3])
       assert self.rotbin, 'no chi angles pass dun cut'
 
       self.rotbin = np.array(self.rotbin)
       self.rotscore = np.array(self.rotscore)
       self.rotchi = np.stack(self.rotchi)
-      self.rotframes = np.stack(rotframes)
+      self.frameidx = np.stack(self.frameidx)
+      self.rotframes = np.stack(self.rotframes)
       self.pose1res = pose
 
-      print('RotamerCloud', self.amino_acid, self.rotchi.shape)
+      print(
+         f'created RotamerCloud {self.amino_acid} nrots: {len(np.unique(self.rotbin))} nframes: {len(self.rotbin)}'
+      )
 
    def subset(self, which):
       new_one = copy.copy(self)
@@ -127,11 +133,12 @@ class RotamerCloudHisZN(RotamerCloud):
       super(RotamerCloudHisZN, self).__init__('HZD', *args, **kw)
 
    def get_effector_frame(self, residue):
-      return rp.motif.frames.stub_from_points(
+      frame = rp.motif.frames.stub_from_points(
          residue.xyz('VZN'),
          residue.xyz('NE2'),
          residue.xyz('CE1'),
       ).squeeze()
+      return [frame]
 
 class RotamerCloudCysZN(RotamerCloud):
    def __init__(self, *args, **kw):
@@ -144,33 +151,59 @@ class RotamerCloudCysZN(RotamerCloud):
       orig = (hg - sg).normalized()
       for i in range(3):
          orig[i] = orig[i] * 2.32 + sg[i]
-      return rp.motif.frames.stub_from_points(orig, sg, cb).squeeze()
+      frame = rp.motif.frames.stub_from_points(orig, sg, cb).squeeze()
+      return [frame]
 
 class RotamerCloudAspZN(RotamerCloud):
    def __init__(self, *args, **kw):
       super(RotamerCloudAspZN, self).__init__('ASP', *args, **kw)
 
    def get_effector_frame(self, residue):
-      cg = residue.xyz('CG')
-      od1 = residue.xyz('OD1')
-      od2 = residue.xyz('OD2')
-      orig = (od1 - od2).normalized()
-      for i in range(3):
-         orig[i] = orig[i] * 2.1 + od1[i]
-      return rp.motif.frames.stub_from_points(orig, od1, cg).squeeze()
+      return _asp_glu_effectors(residue)
 
 class RotamerCloudGluZN(RotamerCloud):
    def __init__(self, *args, **kw):
       super(RotamerCloudGluZN, self).__init__('GLU', *args, **kw)
 
    def get_effector_frame(self, residue):
-      cd = residue.xyz('CD')
-      oe1 = residue.xyz('OE1')
-      oe2 = residue.xyz('OE2')
-      orig = (oe1 - oe2).normalized()
-      for i in range(3):
-         orig[i] = orig[i] * 1.83 + oe1[i]
-      return rp.motif.frames.stub_from_points(orig, oe1, cd).squeeze()
+      return _asp_glu_effectors(residue)
+
+def _asp_glu_effectors(residue):
+   if residue.name3() == 'ASP':
+      names = 'CG', 'OD1', 'OD2'
+   elif residue.name3() == 'GLU':
+      names = 'CD', 'OE1', 'OE2'
+   else:
+      raise NotImplementedError
+
+   c = np.array(residue.xyz(names[0])).reshape(1, 3)
+   o1 = np.array(residue.xyz(names[1])).reshape(1, 3)
+   o2 = np.array(residue.xyz(names[2])).reshape(1, 3)
+
+   # print(rp.homog.angle_degrees(o1 - c, o2 - c))
+   # print(rp.homog.angle_degrees(o1 - o2, o1 - c))
+   # print('----')
+
+   orig = (c - o2) / np.linalg.norm(c - o2)
+   orig = o1 + orig * 2.1
+
+   c = rp.homog.hpoint(c)
+   o1 = rp.homog.hpoint(o1)
+   o2 = rp.homog.hpoint(o2)
+   orig = rp.homog.hpoint(orig)
+   rotaxis = rp.homog.hcross(o1 - c, o2 - c)
+   rot = rp.homog.hrot(rotaxis, 10, o1, degrees=True).squeeze()
+   frames = list()
+   for irot in range(13):
+      # print(
+      #    rp.homog.angle_degrees(orig - o1, o1 - c),
+      #    rp.homog.angle_degrees(orig - o1, c - o2),
+      # )
+      frame = rp.motif.frames.stub_from_points(orig, o1, c).squeeze()
+      frames.append(frame)
+      # print(rot.shape, orig.shape)
+      orig = (rot @ orig.squeeze()).reshape(1, 4)
+   return frames
 
 def _get_stub_1res(pose):
    res = pose.residue(1)

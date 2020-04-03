@@ -33,12 +33,12 @@ def xtal_search_two_residues(
       pose,
       rotcloud1base,
       rotcloud2base,
-      err_tolerance=1.5,
-      dist_err_tolerance=1.0,
-      angle_err_tolerance=15,
-      min_dist_to_z_axis=6.0,
-      sym_axes_angle_tolerance=3.0,
-      angle_to_cart_err_ratio=20.0,
+      err_tolerance,
+      dist_err_tolerance,
+      angle_err_tolerance,
+      min_dist_to_z_axis,
+      sym_axes_angle_tolerance,
+      angle_to_cart_err_ratio,
       **arg,
 ):
    arg = rp.Bunch(arg)
@@ -56,7 +56,7 @@ def xtal_search_two_residues(
    # gets rid of the ".pdb" at the end of the pdb name
    pdb_name = p_n[:-4]
 
-   print(f'{pdb_name} searching')
+   print(f'{pdb_name} searching', rotcloud1base.amino_acid, rotcloud2base.amino_acid)
 
    # check the symmetry type of the pdb
    last_res = rt.core.pose.chain_end_res(pose).pop()
@@ -153,6 +153,7 @@ def xtal_search_two_residues(
                # print(np.degrees(correction_angle))
                # print(np.degrees(matchsymang))
                # print('before', rp.homog.angle_degrees(metal_axis, spec.pept_axis))
+
                for why_do_i_need_this in (-correction_angle, correction_angle):
                   metal_axis_try = rp.homog.hrot(correction_axis, why_do_i_need_this) @ metal_axis
                   if np.allclose(rp.homog.angle_degrees(metal_axis_try, spec.pept_axis),
@@ -162,8 +163,7 @@ def xtal_search_two_residues(
                # print('after ', rp.homog.angle_degrees(metal_axis, spec.pept_axis))
 
                assert np.allclose(rp.homog.angle_degrees(metal_axis, spec.pept_axis),
-                                  xspec.dihedral)
-
+                                  xspec.dihedral, atol=0.001)
                pose2mut = mof.util.mutate_two_res(
                   pose,
                   ires1,
@@ -199,15 +199,14 @@ def xtal_search_two_residues(
                   tag,
                   debug=False,
                )
-               for Xalign, xtal_pose, rpxbody_pdb in xtal_poses:
-                  xtal_pose.dump_pdb(tag + '_xtal.pdb')
-                  rp.util.dump_str(rpxbody_pdb, tag + '_clashcheck.pdb')
-
+               # for Xalign, xtal_pose, rpxbody_pdb in xtal_poses:
+               # xtal_pose.dump_pdb(tag + '_xtal.pdb')
+               # rp.util.dump_str(rpxbody_pdb, tag + '_clashcheck.pdb')
                # assert 0
 
                for ixtal, (xalign, xtal_pose, body_pdb) in enumerate(xtal_poses):
                   celldim = xtal_pose.pdb_info().crystinfo().A()
-                  fname = f"{xspec.spacegroup.replace(' ','_')}_cell{int(celldim):03}_{tag}"
+                  fname = f"{pdb_name}_{xspec.spacegroup.replace(' ','_')}_{tag}_cell{int(celldim):03}"
                   results.append(
                      mof.result.Result(
                         xspec,
@@ -217,9 +216,7 @@ def xtal_search_two_residues(
                         xtal_pose,
                         body_pdb,
                      ))
-
-               metalaxispos = metal_pos[:3] + metal_axis[:3] + metal_axis[:3] + metal_axis[:3]
-               hokey_position_atoms(pose2mut, ires1, ires2, metal_pos, metalaxispos)
+               if not xtal_poses: continue
 
                ### debug crap
                print(
@@ -240,7 +237,11 @@ def xtal_search_two_residues(
                # rotcloud1.dump_pdb(fn + '_a.pdb', stub1, which=hit[0])
                # rotcloud2.dump_pdb(fn + '_b.pdb', stub2, which=hit[1])
                # rpxbody2.dump_pdb(fn + '_sym.pdb')
-               pose2mut.dump_pdb(tag + '_debug_peptide.pdb')
+               # metalaxispos = metal_pos[:3] + metal_axis[:3] + metal_axis[:3] + metal_axis[:3]
+               # pose2mut.dump_pdb(tag + '_before.pdb')
+               # hokey_position_atoms(pose2mut, ires1, ires2, metal_pos, metalaxispos)
+               # pose2mut.dump_pdb(tag + '_after.pdb')
+               # assert 0
                ### end debug crap
 
    return results
@@ -384,38 +385,38 @@ def xtal_search_single_residue(search_spec, pose, **arg):
 
    return results
 
-def hokey_position_atoms(pose2, ires1, ires2, metal_pos, metalaxispos):
+def hokey_position_atoms(pose, ires1, ires2, metal_pos, metalaxispos):
    znres1, znres2 = None, None
-   #   if pose2.residue(ires1).name() == 'HZD':
+   #   if pose.residue(ires1).name() == 'HZD':
    #      znres1 = ires1
    #      znatom1 = 'VZN'
    #      axisatom1 = 'HZ'
-   #   elif pose2.residue(ires1).name3() == 'CYS':
+   #   elif pose.residue(ires1).name3() == 'CYS':
    #      znres1 = ires1
    #      znatom1 = 'HG'
    #      axisatom1 = '2HB'
-   #   elif pose2.residue(ires1).name3() == 'ASP':
+   #   elif pose.residue(ires1).name3() == 'ASP':
    #      znres1 = ires1
    #      znatom1 = '1HB'
    #      axisatom1 = '2HB'
-   #   elif pose2.residue(ires1).name3() == 'GLU':
+   #   elif pose.residue(ires1).name3() == 'GLU':
    #      znres1 = ires1
    #      znatom1 = '1HG'
    #      axisatom1 = '2HG'
    #
-   #   if pose2.residue(ires2).name3() == 'HZD':
+   #   if pose.residue(ires2).name3() == 'HZD':
    #      znres2 = ires2
    #      znatom2 = 'VZN'
    #      axisatom2 = 'HZ'
-   #   elif pose2.residue(ires2).name3() == 'CYS':
+   #   elif pose.residue(ires2).name3() == 'CYS':
    #      znres2 = ires2
    #      znatom2 = 'HG'
    #      axisatom2 = '2HB'
-   #   elif pose2.residue(ires2).name3() == 'ASP':
+   #   elif pose.residue(ires2).name3() == 'ASP':
    #      znres2 = ires2
    #      znatom2 = '1HB'
    #      axisatom2 = '2HB'
-   #   elif pose2.residue(ires2).name3() == 'GLU':
+   #   elif pose.residue(ires2).name3() == 'GLU':
    #      znres2 = ires2
    #      znatom2 = '1HG'
    #      axisatom2 = '2HG'
@@ -426,7 +427,7 @@ def hokey_position_atoms(pose2, ires1, ires2, metal_pos, metalaxispos):
    axisatom1 = '2HB'
    axisatom2 = '2HB'
    for znres, znatom, axisatom in [(znres1, znatom1, axisatom1), (znres2, znatom2, axisatom2)]:
-      pose2.set_xyz(AtomID(pose2.residue(znres).atom_index(znatom), znres),
-                    rVec(metal_pos[0], metal_pos[1], metal_pos[2]))
-      pose2.set_xyz(AtomID(pose2.residue(znres).atom_index(axisatom), znres),
-                    rVec(metalaxispos[0], metalaxispos[1], metalaxispos[2]))
+      pose.set_xyz(AtomID(pose.residue(znres).atom_index(znatom), znres),
+                   rVec(metal_pos[0], metal_pos[1], metal_pos[2]))
+      pose.set_xyz(AtomID(pose.residue(znres).atom_index(axisatom), znres),
+                   rVec(metalaxispos[0], metalaxispos[1], metalaxispos[2]))

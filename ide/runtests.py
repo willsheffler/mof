@@ -16,6 +16,7 @@ _overrides = {
 
 _file_mappings = {
    "xtal_search.py": ["mof/main.py"],
+   "xtal_build.py": ["mof/main.py"],
 }
 _post = defaultdict(lambda: "")
 
@@ -32,7 +33,7 @@ def testfile_of(path, bname):
    if os.path.exists(t):
       return t
 
-def dispatch(file, pytest_args="--duration=5"):
+def dispatch(file, pytest_args=""):
    """for the love of god... clean me up"""
    file = os.path.relpath(file)
    path, bname = os.path.split(file)

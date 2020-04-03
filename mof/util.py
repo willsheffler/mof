@@ -82,17 +82,8 @@ def show_body_isect(body, Xalign, maxdis=3.0):
 #    return ds
 
 ### defs ###
-def gen_pdbs(pdblistfile):
-   # Reads a pdbs.list file to get the paths to all of the pdbs I want to test,
-   # then opens the pdbs with import_pose.pose_from_file
-   # Returns a list, raw_pose_list, that contains all of the poses
-   raw_pose_path_list = []
-   raw_pose_list = []
-   pdbslist = open(pdblistfile, "r")
-   lines = pdbslist.read().splitlines()
-   for line in lines:
-      raw_pose_path_list.append(line)
-   for path in raw_pose_path_list:
+def gen_pdbs(pdblist):
+   for path in pdblist:
       yield rosetta.core.import_pose.pose_from_file(path)
 
    #    raw_pose = rosetta.core.import_pose.pose_from_file(path)

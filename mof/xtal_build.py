@@ -1,5 +1,5 @@
-import numpy as np
-from rpxdock import homog as hm
+import numpy as np, rpxdock as rp
+
 from pyrosetta import rosetta as rt
 from mof import util
 
@@ -30,6 +30,7 @@ def xtal_build(
    orig2 = xspec.orig2
    axis2 = xspec.axis2
    axis2d = xspec.axis2d
+   hack_offset = np.array([0, 0, 0, 0])
 
    dihedral = xspec.dihedral
 
@@ -44,15 +45,21 @@ def xtal_build(
       # axis2 = np.array([0.57735, 0.57735, 0.57735, 0])
       # axis1 = np.array([1, 0, 0, 0])
       # orig2 = np.array([0.5, 0.5, 0, 1])
-   else:
-      if not np.allclose(orig1, [0, 0, 0, 1]):
-         return []
+   elif np.allclose(orig1, [0, 0, 0, 1]):
       # assert np.allclose(orig1, [0, 0, 0, 1])
       assert sym1 == peptide_sym
       assert sym2 == metal_sym
       swapped = False
       # axis1 = np.array([0.57735, 0.57735, 0.57735, 0])
       # assert 0, 'maybe ok, check this new branch'
+   else:
+      swapped = False
+      hack_offset = rp.homog.hvec(orig1)
+      orig1 = orig1 - hack_offset
+      orig2 = orig2 - hack_offset
+      assert sym1 == peptide_sym
+      assert sym2 == metal_sym
+      raise NotImplementedError('both sym elements not at origin')
 
    if sym1 == peptide_sym:
       pt1, ax1 = peptide_orig, peptide_axis
@@ -66,28 +73,28 @@ def xtal_build(
    nfold1 = float(str(sym1)[1])
    nfold2 = float(str(sym2)[1])
 
-   # print(hm.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral))
-   assert np.allclose(hm.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral))
-   assert np.allclose(hm.line_angle(ax1, ax2), np.radians(dihedral))
+   # print(rp.homog.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral))
+   assert np.allclose(rp.homog.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral))
+   assert np.allclose(rp.homog.line_angle(ax1, ax2), np.radians(dihedral))
 
-   # print(hm.line_angle(ax1, ax2), np.radians(dihedral), dihedral)
+   # print(rp.homog.line_angle(ax1, ax2), np.radians(dihedral), dihedral)
 
    # print('sym1', sym1, orig1, axis1, ax1)
    # print('sym2', sym2, orig2, axis2, ax2)
 
-   Xalign, delta = hm.align_lines_isect_axis2(pt1, ax1, pt2, ax2, axis1, orig1, axis2,
-                                              orig2 - orig1)
+   Xalign, delta = rp.homog.align_lines_isect_axis2(pt1, ax1, pt2, ax2, axis1, orig1, axis2,
+                                                    orig2 - orig1)
    xpt1, xax1 = Xalign @ pt1, Xalign @ ax1
    xpt2, xax2 = Xalign @ pt2, Xalign @ ax2
    # print('aligned1', xpt1, xax1)
    # print('aligned2', xpt2, xax2)
-   assert np.allclose(hm.line_angle(xax1, axis1), 0.0, atol=0.001)
-   assert np.allclose(hm.line_angle(xax2, axis2), 0.0, atol=0.001)
-   assert np.allclose(hm.line_angle(xpt1, axis1), 0.0, atol=0.001)
-   isect_error2 = hm.line_line_distance_pa(xpt2, xax2, [0, 0, 0, 1], orig2 - orig1)
+   assert np.allclose(rp.homog.line_angle(xax1, axis1), 0.0, atol=0.001)
+   assert np.allclose(rp.homog.line_angle(xax2, axis2), 0.0, atol=0.001)
+   assert np.allclose(rp.homog.line_angle(xpt1, axis1), 0.0, atol=0.001)
+   isect_error2 = rp.homog.line_line_distance_pa(xpt2, xax2, [0, 0, 0, 1], orig2 - orig1)
    assert np.allclose(isect_error2, 0, atol=0.001)
 
-   isect = hm.line_line_closest_points_pa(xpt2, xax2, [0, 0, 0, 1], orig2 - orig1)
+   isect = rp.homog.line_line_closest_points_pa(xpt2, xax2, [0, 0, 0, 1], orig2 - orig1)
    isect = (isect[0] + isect[1]) / 2
    celldims = list()
    orig = orig2  # not always??
@@ -112,8 +119,10 @@ def xtal_build(
 
    # check ZN sym center location vs zn position
 
-   g1 = hm.hrot(axis1, 2 * np.pi / nfold1 * np.arange(1, nfold1), celldim * orig1)
-   g2 = hm.hrot(axis2, 2 * np.pi / nfold2 * np.arange(1, nfold2), celldim * orig2)
+   g1 = rp.homog.hrot(axis1, 2 * np.pi / nfold1 * np.arange(1, nfold1), celldim * orig1[:3])
+   g2 = rp.homog.hrot(axis2, 2 * np.pi / nfold2 * np.arange(1, nfold2), celldim * orig2[:3])
+   # print('g1', axis1.round(3), 360 / nfold1, (celldim * orig1[:3]).round(3))
+   # print('g2', axis2.round(3), 360 / nfold2, (celldim * orig2[:3]).round(3))
    if swapped: g1, g2 = g2, g1
    g = np.concatenate([g1, g2])
    # print('swapped', swapped)
@@ -123,28 +132,33 @@ def xtal_build(
    # rpxbody.move_to(np.eye(4))
    # rpxbody.dump_pdb('a_body.pdb')
    rpxbody.move_to(Xalign)
-   # print(0, Xalign @ hm.hpoint([1, 2, 3]))
+   # print(0, Xalign @ rp.homog.hpoint([1, 2, 3]))
    # rpxbody.dump_pdb('a_body_xalign.pdb')
+
    rpxbody_pdb, ir_ic = rpxbody.str_pdb(warn_on_chain_overflow=False, use_orig_coords=False)
-   for i, x in enumerate(hm.expand_xforms(g, redundant_point=redundant_point, N=7, maxrad=50)):
-      # print('sym xform', hm.axis_ang_cen_of(x))
+   for i, x in enumerate(
+         rp.homog.expand_xforms(g, redundant_point=redundant_point, N=7, maxrad=50)):
+      # print('sym xform %02i' % i, rp.homog.axis_ang_cen_of(x))
       if np.allclose(x, np.eye(4), atol=1e-4): assert 0
       rpxbody.move_to(x @ Xalign)
+      # rpxbody.dump_pdb('clashcheck%02i.pdb' % i)
       pdbstr, ir_ic = rpxbody.str_pdb(start=ir_ic, warn_on_chain_overflow=False,
                                       use_orig_coords=False)
       rpxbody_pdb += pdbstr
       # print()
-      # print(i, Xalign @ hm.hpoint([1, 2, 3]))
-      # print(i, x @ Xalign @ hm.hpoint([1, 2, 3]))
-      # print('x.axis_angle_cen', hm.axis_angle_of(x)[1] * 180 / np.pi)
+      # print(i, Xalign @ rp.homog.hpoint([1, 2, 3]))
+      # print(i, x @ Xalign @ rp.homog.hpoint([1, 2, 3]))
+      # print('x.axis_angle_cen', rp.homog.axis_angle_of(x)[1] * 180 / np.pi)
 
       if rpxbody.intersect(rpxbody, Xalign, x @ Xalign, mindis=3.0):
          if debug:
             show_body_isect(rpxbody, Xalign, maxdis=3.0)
             rp.util.dump_str(rpxbody_pdb, 'sym_bodies.pdb')
             assert 0
-         break  # for debugging
+         # break  # for debugging
          return []
+
+   # assert 0, 'xtal build after clashcheck'
 
    # fname = f'{tag}_body_xtal.pdb'
    # print('dumping checked bodies', fname)
