@@ -2,23 +2,23 @@ from mof.rotamer_cloud import *
 from mof.pyrosetta_init import pyrosetta
 
 def test_rotamer_cloud_his():
-   chis = [np.arange(-180, 180, 3), np.arange(-180, 180, 8), [-90]]
+   chis = [np.arange(-180, 180, 3), np.arange(-180, 180, 8)]
    # mesh = np.meshgrid(*chis, indexing='ij')
    # rotchi = np.stack(mesh, axis=len(mesh))
    # rotchi = rotchi.reshape(-1, 3)
-   # rotcloud = RotamerCloudHisZn(rotchi=rotchi, max_dun_score=4.0)
+   # rotcloud = RotCloudHisZn(rotchi=rotchi, max_dun_score=4.0)
 
-   rotcloud = RotamerCloudHisZN(grid=chis, max_dun_score=5.0)
+   rotcloud = RotCloudHisZN(grid=chis, max_dun_score=5.0)
 
-   assert rotcloud.rotchi.shape == (362, 3)
-   assert rotcloud.rotframes.shape == (362, 4, 4)
+   assert rotcloud.rotchi.shape == (724, 2)
+   assert rotcloud.rotframes.shape == (724, 4, 4)
 
    # rotcloud.dump_pdb('cloud_his.pdb')
 
 def test_rotamer_cloud_cys():
 
    chis = [np.arange(-180, 180, 6), np.arange(-180, 180, 8)]
-   rotcloud = RotamerCloudCysZN(grid=chis, max_dun_score=4.0)
+   rotcloud = RotCloudCysZN(grid=chis, max_dun_score=4.0)
 
    assert rotcloud.rotchi.shape == (855, 2)
    assert rotcloud.rotframes.shape == (855, 4, 4)
@@ -28,7 +28,7 @@ def test_rotamer_cloud_cys():
 def test_rotamer_cloud_asp():
 
    chis = [np.arange(-180, 180, 8), np.arange(-180, 180, 5)]
-   rotcloud = RotamerCloudAspZN(grid=chis, max_dun_score=5.0)
+   rotcloud = RotCloudAspZN(grid=chis, max_dun_score=5.0)
 
    assert rotcloud.rotchi.shape == (2054, 2)
    assert rotcloud.rotframes.shape == (2054, 4, 4)
@@ -38,7 +38,7 @@ def test_rotamer_cloud_asp():
 def test_rotamer_cloud_glu():
 
    chis = [np.arange(-180, 180, 6), np.arange(-180, 180, 12), np.arange(-180, 180, 6)]
-   rotcloud = RotamerCloudGluZN(grid=chis, max_dun_score=5.0)
+   rotcloud = RotCloudGluZN(grid=chis, max_dun_score=5.0)
 
    assert rotcloud.rotchi.shape == (5746, 3)
    assert rotcloud.rotframes.shape == (5746, 4, 4)

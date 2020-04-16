@@ -5,6 +5,8 @@ from mof import util
 
 from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec
 from pyrosetta.rosetta.numeric import xyzMatrix_double_t as xyzMat
+from mof.pyrosetta_init import make_residue
+from pyrosetta import AtomID
 
 def xtal_build(
       pdb_name,
@@ -30,7 +32,6 @@ def xtal_build(
    orig2 = xspec.orig2
    axis2 = xspec.axis2
    axis2d = xspec.axis2d
-   hack_offset = np.array([0, 0, 0, 0])
 
    dihedral = xspec.dihedral
 
@@ -53,12 +54,6 @@ def xtal_build(
       # axis1 = np.array([0.57735, 0.57735, 0.57735, 0])
       # assert 0, 'maybe ok, check this new branch'
    else:
-      swapped = False
-      hack_offset = rp.homog.hvec(orig1)
-      orig1 = orig1 - hack_offset
-      orig2 = orig2 - hack_offset
-      assert sym1 == peptide_sym
-      assert sym2 == metal_sym
       raise NotImplementedError('both sym elements not at origin')
 
    if sym1 == peptide_sym:
@@ -179,5 +174,10 @@ def xtal_build(
    # rp.util.dump_str(rpxbody_pdb, 'a_xtal_body.pdb')
    # xtal_pose.dump_pdb('a_xtal_pose.pdb')
    # assert 0, 'wip: xtal pose'
+
+   znpos = Xalign @ metal_origin
+   znres = make_residue('ZN')
+   xtal_pose.append_residue_by_jump(znres, 1)
+   xtal_pose.set_xyz(AtomID(1, len(xtal_pose.residues)), xyzVec(*znpos[:3]))
 
    return [(Xalign, xtal_pose, rpxbody_pdb)]

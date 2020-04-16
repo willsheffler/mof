@@ -128,21 +128,38 @@ class RotamerCloud(ABC):
 # def pdb_format_atom(ia=0, an="ATOM", idx=" ", rn="RES", c="A", ir=0, insert=" ", x=0, y=0, z=0,
 # occ=1, b=1, elem=" ", xyz=None):
 
-class RotamerCloudHisZN(RotamerCloud):
+class RotCloudHisZN(RotamerCloud):
    def __init__(self, *args, **kw):
-      super(RotamerCloudHisZN, self).__init__('HZD', *args, **kw)
+      super(RotCloudHisZN, self).__init__('HIS', *args, **kw)
 
    def get_effector_frame(self, residue):
-      frame = rp.motif.frames.stub_from_points(
-         residue.xyz('VZN'),
-         residue.xyz('NE2'),
-         residue.xyz('CE1'),
-      ).squeeze()
-      return [frame]
+      cg = residue.xyz('CG')
+      cd = residue.xyz('CD2')
+      ce = residue.xyz('CE1')
+      nd = residue.xyz('ND1')
+      ne = residue.xyz('NE2')
 
-class RotamerCloudCysZN(RotamerCloud):
+      zn = rVec(0, 0, 0)
+      for i in range(3):
+         zn[i] = ne[i] - (cd[i] + ce[i]) / 2
+      zn.normalize()
+      for i in range(3):
+         zn[i] = ne[i] + 2.2 * zn[i]
+      frame1 = rp.motif.frames.stub_from_points(zn, ne, ce).squeeze()
+
+      zn = rVec(0, 0, 0)
+      for i in range(3):
+         zn[i] = nd[i] - (cg[i] + ce[i]) / 2
+      zn /= np.linalg.norm(zn)
+      for i in range(3):
+         zn[i] = nd[i] + 2.2 * zn[i]
+      frame2 = rp.motif.frames.stub_from_points(zn, ne, ce).squeeze()
+
+      return [frame1, frame2]
+
+class RotCloudCysZN(RotamerCloud):
    def __init__(self, *args, **kw):
-      super(RotamerCloudCysZN, self).__init__('CYS', *args, **kw)
+      super(RotCloudCysZN, self).__init__('CYS', *args, **kw)
 
    def get_effector_frame(self, residue):
       hg = residue.xyz('HG')
@@ -154,16 +171,16 @@ class RotamerCloudCysZN(RotamerCloud):
       frame = rp.motif.frames.stub_from_points(orig, sg, cb).squeeze()
       return [frame]
 
-class RotamerCloudAspZN(RotamerCloud):
+class RotCloudAspZN(RotamerCloud):
    def __init__(self, *args, **kw):
-      super(RotamerCloudAspZN, self).__init__('ASP', *args, **kw)
+      super(RotCloudAspZN, self).__init__('ASP', *args, **kw)
 
    def get_effector_frame(self, residue):
       return _asp_glu_effectors(residue)
 
-class RotamerCloudGluZN(RotamerCloud):
+class RotCloudGluZN(RotamerCloud):
    def __init__(self, *args, **kw):
-      super(RotamerCloudGluZN, self).__init__('GLU', *args, **kw)
+      super(RotCloudGluZN, self).__init__('GLU', *args, **kw)
 
    def get_effector_frame(self, residue):
       return _asp_glu_effectors(residue)

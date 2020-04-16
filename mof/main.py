@@ -35,7 +35,8 @@ def main():
    # ligands = ['HZD', 'DHZD']
    # xspec = xtal_spec.get_xtal_spec(None)
    search_spec = mof.xtal_search.XtalSearchSpec(
-      spacegroup='p4132',
+      # spacegroup='p4132',
+      spacegroup='i213',
       pept_orig=np.array([0, 0, 0, 1]),
       pept_axis=np.array([0, 0, 1, 0]),
       max_dun_score=arg.max_dun_score,
@@ -70,16 +71,16 @@ def main():
    if os.path.exists(tmp_cache_file):
       rc_his, rc_cys, rc_asp, rc_glu = rp.util.load(tmp_cache_file)
    else:
-
       chi_range = lambda resl: np.arange(-180, 180, resl)
-      chi_his = [chi_range(arg.chiresl_his1), chi_range(arg.chiresl_his2), [-90]]
-      chi_cys = [chi_range(arg.chiresl_cys1), chi_range(arg.chiresl_cys2)]
-      chi_asp = [chi_range(arg.chiresl_asp1), chi_range(arg.chiresl_asp2)]
+      chi_his = [chi_range(x) for x in (arg.chiresl_his1, arg.chiresl_his2)]
+      chi_cys = [chi_range(x) for x in (arg.chiresl_cys1, arg.chiresl_cys2)]
+      chi_asp = [chi_range(x) for x in (arg.chiresl_asp1, arg.chiresl_asp2)]
       chi_glu = [chi_range(x) for x in (arg.chiresl_glu1, arg.chiresl_glu2, arg.chiresl_glu3)]
-      rc_his = mof.rotamer_cloud.RotamerCloudHisZN(grid=chi_his, max_dun_score=5.0)
-      rc_cys = mof.rotamer_cloud.RotamerCloudCysZN(grid=chi_cys, max_dun_score=4.0)
-      rc_asp = mof.rotamer_cloud.RotamerCloudAspZN(grid=chi_asp, max_dun_score=5.0)
-      rc_glu = mof.rotamer_cloud.RotamerCloudGluZN(grid=chi_glu, max_dun_score=5.0)
+      rc_his = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0)
+      rc_cys = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0)
+      rc_asp = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0)
+      rc_glu = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0)
+
       rp.util.dump([rc_his, rc_cys, rc_asp, rc_glu], tmp_cache_file)
 
    for pose in prepped_pdb_gen:

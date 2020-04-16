@@ -7,7 +7,7 @@ from pyrosetta.rosetta.numeric import xyzVector_double_t as rVec
 from pyrosetta.rosetta.numeric import xyzMatrix_double_t as rMat
 from pyrosetta import AtomID
 
-pyrosetta_flags = f'-mute all -output_virtual -extra_res_fa {data.HZ3_params} {data.HZ4_params} {data.HZD_params} -preserve_crystinfo'
+pyrosetta_flags = f'-mute all -extra_res_fa {data.HZ3_params} {data.HZ4_params} {data.HZD_params} -preserve_crystinfo'
 
 pyrosetta.init(pyrosetta_flags)
 
