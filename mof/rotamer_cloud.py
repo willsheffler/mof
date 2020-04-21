@@ -130,13 +130,11 @@ class RotamerCloud(ABC):
 
 class RotCloudHisZN(RotamerCloud):
    def __init__(self, *args, **kw):
-      super(RotCloudHisZN, self).__init__('HIS', *args, **kw)
+      super().__init__('HIS', *args, **kw)
 
    def get_effector_frame(self, residue):
-      cg = residue.xyz('CG')
       cd = residue.xyz('CD2')
       ce = residue.xyz('CE1')
-      nd = residue.xyz('ND1')
       ne = residue.xyz('NE2')
 
       zn = rVec(0, 0, 0)
@@ -145,7 +143,21 @@ class RotCloudHisZN(RotamerCloud):
       zn.normalize()
       for i in range(3):
          zn[i] = ne[i] + 2.2 * zn[i]
-      frame1 = rp.motif.frames.stub_from_points(zn, ne, ce).squeeze()
+
+      return [rp.motif.frames.stub_from_points(zn, ne, ce).squeeze()]
+
+class RotCloudDHisZN(RotCloudHisZN):
+   def __init__(self, *args, **kw):
+      RotamerCloud.__init__(self, 'DHIS', *args, **kw)
+
+class RotCloudHisdZN(RotamerCloud):
+   def __init__(self, *args, **kw):
+      super(RotCloudHisdZN, self).__init__('HIS_D', *args, **kw)
+
+   def get_effector_frame(self, residue):
+      cg = residue.xyz('CG')
+      ce = residue.xyz('CE1')
+      nd = residue.xyz('ND1')
 
       zn = rVec(0, 0, 0)
       for i in range(3):
@@ -153,9 +165,12 @@ class RotCloudHisZN(RotamerCloud):
       zn /= np.linalg.norm(zn)
       for i in range(3):
          zn[i] = nd[i] + 2.2 * zn[i]
-      frame2 = rp.motif.frames.stub_from_points(zn, ne, ce).squeeze()
 
-      return [frame1, frame2]
+      return [rp.motif.frames.stub_from_points(zn, nd, ce).squeeze()]
+
+class RotCloudDHisdZN(RotCloudHisdZN):
+   def __init__(self, *args, **kw):
+      RotamerCloud.__init__(self, 'DHIS_D', *args, **kw)
 
 class RotCloudCysZN(RotamerCloud):
    def __init__(self, *args, **kw):
@@ -171,12 +186,20 @@ class RotCloudCysZN(RotamerCloud):
       frame = rp.motif.frames.stub_from_points(orig, sg, cb).squeeze()
       return [frame]
 
+class RotCloudDCysZN(RotCloudCysZN):
+   def __init__(self, *args, **kw):
+      RotamerCloud.__init__(self, 'DCYS', *args, **kw)
+
 class RotCloudAspZN(RotamerCloud):
    def __init__(self, *args, **kw):
       super(RotCloudAspZN, self).__init__('ASP', *args, **kw)
 
    def get_effector_frame(self, residue):
       return _asp_glu_effectors(residue)
+
+class RotCloudDAspZN(RotCloudAspZN):
+   def __init__(self, *args, **kw):
+      RotamerCloud.__init__(self, 'DASP', *args, **kw)
 
 class RotCloudGluZN(RotamerCloud):
    def __init__(self, *args, **kw):
@@ -185,10 +208,14 @@ class RotCloudGluZN(RotamerCloud):
    def get_effector_frame(self, residue):
       return _asp_glu_effectors(residue)
 
+class RotCloudDGluZN(RotCloudGluZN):
+   def __init__(self, *args, **kw):
+      RotamerCloud.__init__(self, 'DGLU', *args, **kw)
+
 def _asp_glu_effectors(residue):
-   if residue.name3() == 'ASP':
+   if residue.name() in ('ASP', 'DASP'):
       names = 'CG', 'OD1', 'OD2'
-   elif residue.name3() == 'GLU':
+   elif residue.name() in ('GLU', 'DGLU'):
       names = 'CD', 'OE1', 'OE2'
    else:
       raise NotImplementedError
@@ -232,3 +259,9 @@ def _get_stub_1res(pose):
       np.array([[ca[0], ca[1], ca[2]]]),
       np.array([[c[0], c[1], c[2]]]),
    ).squeeze()
+
+# for pickle test file compatibility... this is very lazy... should regen
+RotamerCloudAspZN = RotCloudAspZN
+RotamerCloudCysZN = RotCloudCysZN
+RotamerCloudGluZN = RotCloudGluZN
+RotamerCloudHisZN = RotCloudHisZN

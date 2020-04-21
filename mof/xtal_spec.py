@@ -1,11 +1,21 @@
-import numpy as np
+import numpy as np, rpxdock as rp
 from rpxdock import homog as hm
+from mof.data import data_dir
 
 class XtalSpec:
    pass
 
 class XtalSpecCC(XtalSpec):
-   def __init__(self, spacegroup, nfold1, axis1, orig1, nfold2, axis2, orig2, min_cell_size=30):
+   def __init__(
+         self,
+         spacegroup,
+         nfold1,
+         axis1,
+         orig1,
+         nfold2,
+         axis2,
+         orig2,
+   ):
       self.spacegroup = spacegroup
       self.nfold1 = int(nfold1)
       self.sym1 = 'C%i' % nfold1
@@ -18,7 +28,16 @@ class XtalSpecCC(XtalSpec):
       self.dihedral = np.degrees(hm.angle(axis1, axis2))
       self.axis1d = None
       self.axis2d = None
-      self.min_cell_size = min_cell_size
+      try:
+         # print(spacegroup, list(_frames_files.keys()))
+         self.frames = rp.load(_frames_files[spacegroup])
+         # print(self.frames.shape)
+      except:
+         self.frames = None
+
+_frames_files = {
+   'I 21 3': data_dir + '/i213_redundant111_n16_maxrad2.pickle',
+}
 
 def get_xtal_spec(name):
    try:

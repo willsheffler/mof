@@ -3,13 +3,19 @@ import mof, rpxdock as rp, numpy as np
 def test_xtal_search_2res_i213(c3_peptide, rotcloud_asp, rotcloud_his):
    arg = rp.Bunch()
    arg.max_bb_redundancy = 1.0
-   arg.err_tolerance = 1.5,
-   arg.dist_err_tolerance = 1.0,
-   arg.angle_err_tolerance = 15,
-   arg.min_dist_to_z_axis = 6.0,
-   arg.sym_axes_angle_tolerance = 5.0,
-   arg.angle_to_cart_err_ratio = 20.0,
+   arg.err_tolerance = 1.5
+   arg.dist_err_tolerance = 1.0
+   arg.angle_err_tolerance = 15
+   arg.min_dist_to_z_axis = 6.0
+   arg.sym_axes_angle_tolerance = 5.0
+   arg.angle_to_cart_err_ratio = 20.0
    arg.max_dun_score
+   arg.min_cell_size = 0
+   arg.max_cell_size = 999
+   arg.clash_dis = 3.0
+   arg.contact_dis = 7.0
+   arg.min_contacts = 0
+   arg.max_sym_score = 9e9
 
    search_spec = mof.xtal_search.XtalSearchSpec(
       spacegroup='i213',

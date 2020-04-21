@@ -1,6 +1,7 @@
 class Result:
    """mof xtal search hit"""
-   def __init__(self, xspec, label, xalign, rpxbody, xtal_asym_pose, symbody_pdb):
+   def __init__(self, xspec, label, xalign, rpxbody, xtal_asym_pose, symbody_pdb, ncontact,
+                energy):
       super(Result, self).__init__()
       self.xspec = xspec
       self.label = label
@@ -8,3 +9,5 @@ class Result:
       self.symbody_pdb = symbody_pdb
       self.xalign = xalign
       self.rpxbody = rpxbody
+      self.ncontact = ncontact
+      self.energy = energy

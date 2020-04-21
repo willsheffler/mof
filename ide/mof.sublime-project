@@ -8,10 +8,6 @@
    "build_systems":
    [
       {
-         "name": "run_main_one",
-         "shell_cmd": "cd $folder/mof/tests/only_one; PYTHONPATH=$folder python $folder/mof/main.py input/only_one.list &> $folder/sublime_build.log"
-      },
-      {
          "name": "util_runtests.py",
          "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python ide/runtests.py $file &> sublime_build.log"
       },

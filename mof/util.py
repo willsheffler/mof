@@ -36,8 +36,8 @@ def show_body_isect(body, Xalign, maxdis=3.0):
    print('dumping clash1/2.pdb')
    rp.util.dump_str(pdb1, 'clash1.pdb')
    rp.util.dump_str(pdb2, 'clash2.pdb')
-   body.dump_pdb('body.pdb')
-   body2.dump_pdb('body2.pdb')
+   body.dump_pdb('clash1_body1.pdb')
+   body2.dump_pdb('clash2_body2.pdb')
 
 # def get_xtal_info():
 #    df = pandas.read_csv(data.frank_space_groups)

@@ -19,6 +19,10 @@ rts = chm.residue_type_set('fa_standard')
 dun_sfxn = core.scoring.ScoreFunction()
 dun_sfxn.set_weight(core.scoring.ScoreType.fa_dun, 1.0)
 
+lj_sfxn = core.scoring.ScoreFunction()
+lj_sfxn.set_weight(core.scoring.ScoreType.fa_atr, 1.0)
+lj_sfxn.set_weight(core.scoring.ScoreType.fa_rep, 0.55)
+
 def get_res_energy(pose, st, ires):
    return
 

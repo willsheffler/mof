@@ -1,6 +1,7 @@
 import numpy as np, rpxdock as rp
 
 from pyrosetta import rosetta as rt
+from mof.pyrosetta_init import lj_sfxn
 from mof import util
 
 from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec
@@ -20,8 +21,15 @@ def xtal_build(
       metal_sym_axis,
       rpxbody,
       tag,
+      clash_dis,
+      contact_dis,
+      min_contacts,
+      max_sym_score,
       debug=False,
+      **arg,
 ):
+   arg = rp.Bunch(arg)
+   if not arg.timer: arg.timer = rp.Timer().start()
 
    sym1 = xspec.sym1
    orig1 = xspec.orig1
@@ -78,7 +86,7 @@ def xtal_build(
    # print('sym2', sym2, orig2, axis2, ax2)
 
    Xalign, delta = rp.homog.align_lines_isect_axis2(pt1, ax1, pt2, ax2, axis1, orig1, axis2,
-                                                    orig2 - orig1)
+                                                    orig2)
    xpt1, xax1 = Xalign @ pt1, Xalign @ ax1
    xpt2, xax2 = Xalign @ pt2, Xalign @ ax2
    # print('aligned1', xpt1, xax1)
@@ -86,18 +94,17 @@ def xtal_build(
    assert np.allclose(rp.homog.line_angle(xax1, axis1), 0.0, atol=0.001)
    assert np.allclose(rp.homog.line_angle(xax2, axis2), 0.0, atol=0.001)
    assert np.allclose(rp.homog.line_angle(xpt1, axis1), 0.0, atol=0.001)
-   isect_error2 = rp.homog.line_line_distance_pa(xpt2, xax2, [0, 0, 0, 1], orig2 - orig1)
+   isect_error2 = rp.homog.line_line_distance_pa(xpt2, xax2, [0, 0, 0, 1], orig2)
    assert np.allclose(isect_error2, 0, atol=0.001)
 
-   isect = rp.homog.line_line_closest_points_pa(xpt2, xax2, [0, 0, 0, 1], orig2 - orig1)
+   isect = rp.homog.line_line_closest_points_pa(xpt2, xax2, [0, 0, 0, 1], orig2)
    isect = (isect[0] + isect[1]) / 2
-   celldims = list()
    orig = orig2  # not always??
    celldims = [isect[i] / o for i, o in enumerate(orig[:3]) if abs(o) > 0.001]
    assert np.allclose(min(celldims), max(celldims), atol=0.001)
    celldim = abs(min(celldims))
 
-   if celldim < xspec.min_cell_size:
+   if not (arg.min_cell_size <= celldim <= arg.max_cell_size):
       return []
 
    nsym = int(peptide_sym[1])
@@ -112,46 +119,117 @@ def xtal_build(
                   Xalign[2, 1], Xalign[0, 2], Xalign[1, 2], Xalign[2, 2]),
       xyzVec(Xalign[0, 3], Xalign[1, 3], Xalign[2, 3]))
 
-   # check ZN sym center location vs zn position
+   # check ZN sym center location vs zn position?????????
 
-   g1 = rp.homog.hrot(axis1, 2 * np.pi / nfold1 * np.arange(1, nfold1), celldim * orig1[:3])
-   g2 = rp.homog.hrot(axis2, 2 * np.pi / nfold2 * np.arange(1, nfold2), celldim * orig2[:3])
-   # print('g1', axis1.round(3), 360 / nfold1, (celldim * orig1[:3]).round(3))
-   # print('g2', axis2.round(3), 360 / nfold2, (celldim * orig2[:3]).round(3))
+   # print('--------------')
+   # print(celldim, orig1[:3], orig2[:3])
+   # print('--------------')
+
+   # scale = 100.0
+   # redundant_point = rp.homog.hpoint([10, 10, 10])
+   # # print('redundant_point', redundant_point)
+   # # print(Xalign @ redundant_point)
+   # g1 = rp.homog.hrot(axis1, (2 * np.pi / nfold1) * np.arange(1, nfold1), scale * orig1[:3])
+   # g2 = rp.homog.hrot(axis2, (2 * np.pi / nfold2) * np.arange(1, nfold2), scale * orig2[:3])
+   # g = np.concatenate([g1, g2])
+   # symxforms = rp.homog.expand_xforms(
+   #    g,
+   #    redundant_point=redundant_point,
+   #    N=16,
+   #    maxrad=2.0 * scale,
+   # )
+   # rp.dump(list(symxforms), 'i213_redundant111_n16_maxrad2.pickle')
+   # symxforms = rp.load('i213_redundant111_n16_maxrad2_ORIG.pickle')
+   # print(len(symxforms))
+   # print(type(symxforms[0]))
+   # symxforms = np.stack(symxforms, axis=0)
+   # print(symxforms.shape)
+   # symxforms[:, :3, 3] /= scale
+   # # print(np.around(symxforms[:, :3, 3], 3))
+   # rp.dump(symxforms, 'i213_redundant111_n16_maxrad2.pickle')
+   # # assert 0
+   symxforms = xspec.frames.copy()
+   symxforms[:, :3, 3] *= celldim
+
+   g1 = rp.homog.hrot(axis1, (2 * np.pi / nfold1) * np.arange(0, nfold1), celldim * orig1[:3])
+   g2 = rp.homog.hrot(axis2, (2 * np.pi / nfold2) * np.arange(0, nfold2), celldim * orig2[:3])
+   # # print('g1', axis1.round(3), 360 / nfold1, (celldim * orig1[:3]).round(3))
+   # # print('g2', axis2.round(3), 360 / nfold2, (celldim * orig2[:3]).round(3))
    if swapped: g1, g2 = g2, g1
    g = np.concatenate([g1, g2])
    # print('swapped', swapped)
    redundant_point = (xpt1 + xax1) if first_is_peptide else (xpt2 + xax2)
-   # redundant_point += [0.0039834, 0.0060859, 0.0012353, 0]
+   # redundant_point = xpt1 if first_is_peptide else xpt2
    # print('redundancy point', redundant_point)
-   # rpxbody.move_to(np.eye(4))
-   # rpxbody.dump_pdb('a_body.pdb')
+   # # rpxbody.move_to(np.eye(4))
+   # # rpxbody.dump_pdb('a_body.pdb')
    rpxbody.move_to(Xalign)
-   # print(0, Xalign @ rp.homog.hpoint([1, 2, 3]))
+   # # print(0, Xalign @ rp.homog.hpoint([1, 2, 3]))
    # rpxbody.dump_pdb('a_body_xalign.pdb')
 
+   arg.timer.checkpoint()
+
+   clash, tot_ncontact = False, 0
    rpxbody_pdb, ir_ic = rpxbody.str_pdb(warn_on_chain_overflow=False, use_orig_coords=False)
-   for i, x in enumerate(
-         rp.homog.expand_xforms(g, redundant_point=redundant_point, N=7, maxrad=50)):
-      # print('sym xform %02i' % i, rp.homog.axis_ang_cen_of(x))
+   body_xalign = rpxbody.copy()
+   body_xalign.move_to(Xalign)
+   # body_xalign.dump_pdb('body_xalign.pdb')
+   prev = [np.eye(4)]
+   for i, x in enumerate(symxforms):
+      # rp.homog.expand_xforms(g, redundant_point=redundant_point, N=6, maxrad=30)):
       if np.allclose(x, np.eye(4), atol=1e-4): assert 0
       rpxbody.move_to(x @ Xalign)
       # rpxbody.dump_pdb('clashcheck%02i.pdb' % i)
-      pdbstr, ir_ic = rpxbody.str_pdb(start=ir_ic, warn_on_chain_overflow=False,
-                                      use_orig_coords=False)
-      rpxbody_pdb += pdbstr
-      # print()
-      # print(i, Xalign @ rp.homog.hpoint([1, 2, 3]))
-      # print(i, x @ Xalign @ rp.homog.hpoint([1, 2, 3]))
-      # print('x.axis_angle_cen', rp.homog.axis_angle_of(x)[1] * 180 / np.pi)
-
-      if rpxbody.intersect(rpxbody, Xalign, x @ Xalign, mindis=3.0):
-         if debug:
-            show_body_isect(rpxbody, Xalign, maxdis=3.0)
-            rp.util.dump_str(rpxbody_pdb, 'sym_bodies.pdb')
-            assert 0
-         # break  # for debugging
+      if debug:
+         pdbstr, ir_ic = rpxbody.str_pdb(start=ir_ic, warn_on_chain_overflow=False,
+                                         use_orig_coords=False)
+         rpxbody_pdb += pdbstr
+      if np.any(rpxbody.intersect(rpxbody,
+                                  np.stack(prev) @ Xalign, x @ Xalign, mindis=clash_dis)):
+         # if rpxbody.intersect(rpxbody, Xalign, x @ Xalign, mindis=clash_dis):
+         clash = True
          return []
+
+      ncontact = rpxbody.contact_count(body_xalign, maxdis=contact_dis)
+      tot_ncontact += ncontact
+      # print(ncontact)
+      # if ncontact > 0:
+      # rpxbody.dump_pdb('body_%i_%i.pdb' % (i, ncontact))
+
+      prev.append(x)
+
+      #   if clash and debug:
+      #    for xprev in prev:
+      #       # print(xprev.shape, (xprev @ Xalign).shape, (x @ Xalign).shape)
+      #       if rpxbody.intersect(rpxbody, xprev @ Xalign, x @ Xalign, mindis=3.0):
+      #          show_body_isect(rpxbody, Xalign, maxdis=3.0)
+      #          rp.util.dump_str(rpxbody_pdb, 'sym_bodies.pdb')
+      #    assert 0
+
+   if tot_ncontact < min_contacts:
+      return []
+
+   arg.timer.checkpoint('clash_check')
+
+   # for i, x in enumerate(symxforms):
+   #    # print('sym xform %02i' % i, rp.homog.axis_ang_cen_of(x)
+   #    rpxbody.move_to(x @ Xalign)
+   #    rpxbody.dump_pdb('clashframe_%02i.pdb' % i)
+
+   # assert 0
+
+   # print('!!!!!!!!!!!!!!!! debug clash check  !!!!!!!!!!!!!!!!!!!!!!!!!')
+   # rpxbody.move_to(Xalign)
+   # rpxbody.dump_pdb('body.pdb')
+   # symxforms = rp.homog.expand_xforms(g, redundant_point=redundant_point, N=8, maxrad=30)
+   # for i, x in enumerate(symxforms):
+   #    # print('sym xform %02i' % i, rp.homog.axis_ang_cen_of(x))
+   #    rpxbody.move_to(x @ Xalign)
+   #    rpxbody.dump_pdb('clashcheck%02i.pdb' % i)
+   #    if rpxbody.intersect(rpxbody, Xalign, x @ Xalign, mindis=3.0):
+   #       util.show_body_isect(rpxbody, Xalign, maxdis=3.0)
+   #       rp.util.dump_str(rpxbody_pdb, 'sym_bodies.pdb')
+   # assert 0
 
    # assert 0, 'xtal build after clashcheck'
 
@@ -170,14 +248,55 @@ def xtal_build(
    pi.set_crystinfo(ci)
    xtal_pose.pdb_info(pi)
 
-   # pose.dump_pdb('a_pose.pdb')
-   # rp.util.dump_str(rpxbody_pdb, 'a_xtal_body.pdb')
-   # xtal_pose.dump_pdb('a_xtal_pose.pdb')
-   # assert 0, 'wip: xtal pose'
+   nonbonded_energy = 0
+   if max_sym_score < 1000:
+      sympose = xtal_pose.clone()
+      rt.protocols.cryst.MakeLatticeMover().apply(sympose)
+      syminfo = rt.core.pose.symmetry.symmetry_info(sympose)
+
+      # rp.util.dump_str(rpxbody_pdb, 'symbodies.pdb')
+      lj_sfxn(sympose)
+
+      nasym = len(xtal_pose.residues)
+      nchain = syminfo.subunits()  # sympose.num_chains()
+      bonded_subunits = []
+      nterm = sympose.residue(1).xyz('N')
+      cterm = sympose.residue(nasym).xyz('C')
+      for i in range(1, nchain):
+         nres = i * nasym + 1
+         cres = i * nasym + nasym
+         if 2 > cterm.distance(sympose.residue(nres).xyz('N')):
+            bonded_subunits.append(i + 1)
+         if 2 > nterm.distance(sympose.residue(cres).xyz('C')):
+            bonded_subunits.append(i + 1)
+
+      energy_graph = sympose.energies().energy_graph()
+      eweights = sympose.energies().weights()
+      nonbonded_energy = 0
+      for ichain in range(1, nchain):
+         if ichain + 1 in bonded_subunits: continue
+         for i in range(nasym):
+            ir = ichain + i + 1
+            for j in range(nasym):
+               jr = j + 1
+               edge = energy_graph.find_edge(ir, jr)
+               if not edge:
+                  continue
+               nonbonded_energy += edge.dot(eweights)
+
+      # print('nonbonded_energy', nonbonded_energy)
+      if nonbonded_energy > max_sym_score:
+         return []
+
+   arg.timer.checkpoint('make sympose and "nonbonded" score')
 
    znpos = Xalign @ metal_origin
    znres = make_residue('ZN')
    xtal_pose.append_residue_by_jump(znres, 1)
    xtal_pose.set_xyz(AtomID(1, len(xtal_pose.residues)), xyzVec(*znpos[:3]))
 
-   return [(Xalign, xtal_pose, rpxbody_pdb)]
+   # xtal_pose.dump_pdb('a_xtal_pose.pdb')
+   # rp.util.dump_str(rpxbody_pdb, 'a_symframes.pdb')
+   # assert 0
+
+   return [(Xalign, xtal_pose, rpxbody_pdb, tot_ncontact, nonbonded_energy)]

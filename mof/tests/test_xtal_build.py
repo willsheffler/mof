@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np, pytest
 
 from pyrosetta.rosetta.core.import_pose import pose_from_file
 from mof.tests import path_to_test_data
@@ -6,7 +6,17 @@ from mof import util, pyrosetta_init, xtal_spec
 from mof.xtal_build import xtal_build
 import rpxdock as rp
 
+# need to add p213 xtal spec frames
+@pytest.mark.xfail
 def test_xtal_build_p213():
+   arg = rp.Bunch()
+   arg.min_cell_size = 0
+   arg.max_cell_size = 999
+   arg.clash_dis = 3.0,
+   arg.contact_dis = 7.0,
+   arg.min_contacts = 0,
+   arg.max_sym_score = 9e9,
+
    pose = pose_from_file(path_to_test_data('test_xtal_build_p213.pdb'))
 
    xtal_posess = xtal_build(
@@ -21,6 +31,7 @@ def test_xtal_build_p213():
       metal_sym_axis=np.array([-0.55345815, -0.76326468, -0.33333333, 0.]),
       rpxbody=rp.Body(pose),
       tag='test_xtal_build_p213',
+      **arg,
    )
 
    xalign, xpose, bodypdb = xtal_posess[0]

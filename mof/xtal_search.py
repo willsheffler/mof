@@ -10,7 +10,8 @@ from pyrosetta import rosetta as rt, init as pyrosetta_init
 
 class XtalSearchSpec(object):
    """stuff needed for pepdide xtal search"""
-   def __init__(self, spacegroup, pept_axis, pept_orig, ligands, sym_of_ligand, max_dun_score):
+   def __init__(self, spacegroup, pept_axis, pept_orig, ligands, sym_of_ligand, max_dun_score,
+                **arg):
       super(XtalSearchSpec, self).__init__()
       self.spacegroup = spacegroup
       self.pept_axis = pept_axis
@@ -42,6 +43,8 @@ def xtal_search_two_residues(
       **arg,
 ):
    arg = rp.Bunch(arg)
+   if not arg.timer: arg.timer = rp.Timer().start()
+   arg.timer.checkpoint()
 
    spec = search_spec
    xspec = spec.xtal_spec
@@ -78,12 +81,15 @@ def xtal_search_two_residues(
          continue
       stub1 = rpxbody.stub[ires1 - 1]
 
+      arg.timer.checkpoint('xtal_search')
       rots1ok = min_dist_to_z_axis < np.linalg.norm(
          (stub1 @ rotcloud1base.rotframes)[:, :2, 3], axis=1)
       if 0 == np.sum(rots1ok): continue
       rotcloud1 = rotcloud1base.subset(rots1ok)
       rotframes1 = stub1 @ rotcloud1.rotframes
       # rotcloud1.dump_pdb(f'cloud_a_{ires1:02}.pdb', position=stub1)
+
+      arg.timer.checkpoint('position rotcloud')
 
       range2 = range(1, int(total_res) + 1)
       if rotcloud1base is rotcloud2base: range2 = range(ires1 + 1, int(total_res) + 1)
@@ -94,20 +100,29 @@ def xtal_search_two_residues(
          stub2 = rpxbody.stub[ires2 - 1]
          # rotcloud2.dump_pdb(f'cloud_b_{ires2:02}.pdb', position=stub2)
 
+         arg.timer.checkpoint('xtal_search')
          rots2ok = min_dist_to_z_axis < np.linalg.norm(
             (stub2 @ rotcloud2base.rotframes)[:, :2, 3], axis=1)
          if 0 == np.sum(rots2ok): continue
          rotcloud2 = rotcloud2base.subset(rots2ok)
          rotframes2 = stub2 @ rotcloud2.rotframes
 
+         arg.timer.checkpoint('rotcloud positioning')
+
          dist = rotframes1[:, :, 3].reshape(-1, 1, 4) - rotframes2[:, :, 3].reshape(1, -1, 4)
          dist = np.linalg.norm(dist, axis=2)
+
+         arg.timer.checkpoint('rotcloud dist')
+
          # if np.min(dist) < 1.0:
          # print(f'{ires1:02} {ires2:02} {np.sort(dist.flat)[:5]}')
          dot = np.sum(
             rotframes1[:, :, 0].reshape(-1, 1, 4) * rotframes2[:, :, 0].reshape(1, -1, 4), axis=2)
          ang = np.degrees(np.arccos(dot))
          ang_delta = np.abs(ang - 109.4712206)
+
+         arg.timer.checkpoint('rotcloud ang')
+
          err = np.sqrt((ang_delta / angle_to_cart_err_ratio)**2 + dist**2)
          rot1err2 = np.min(err, axis=1)
          bestrot2 = np.argmin(err, axis=1)
@@ -120,6 +135,8 @@ def xtal_search_two_residues(
          # ok = angerr < angle_err_tolerance
          hits1 = np.argwhere(ok).reshape(-1)
 
+         arg.timer.checkpoint('rotcloud match check')
+
          # hits = (ang_delta < angle_err_tolerance) * (dist < dist_err_tolerance)
          if len(hits1):
             # print(rotcloud1.amino_acid, rotcloud2.amino_acid, ires1, ires2)
@@ -131,6 +148,8 @@ def xtal_search_two_residues(
             for ihit, hit in enumerate(hits):
                frame1 = rotframes1[hit[0]]
                frame2 = rotframes2[hit[1]]
+
+               arg.timer.checkpoint('xtal_search')
 
                parl = (frame1[:, 0] + frame2[:, 0]) / 2.0
                perp = rp.homog.hcross(frame1[:, 0], frame2[:, 0])
@@ -164,6 +183,9 @@ def xtal_search_two_residues(
 
                assert np.allclose(rp.homog.angle_degrees(metal_axis, spec.pept_axis),
                                   xspec.dihedral, atol=0.001)
+
+               arg.timer.checkpoint('axes geom checks')
+
                pose2mut = mof.util.mutate_two_res(
                   pose,
                   ires1,
@@ -180,10 +202,15 @@ def xtal_search_two_residues(
                           pose2mut.energies().residue_total_energy(ires2))
                sc_2res_orig = (pose.energies().residue_total_energy(ires1) +
                                pose.energies().residue_total_energy(ires2))
+
+               arg.timer.checkpoint('mut_two_res')
+
                if sc_2res - sc_2res_orig > 5.0: continue
 
                tag = ('hit_%s_%s_%i_%i_%i' %
                       (rotcloud1.amino_acid, rotcloud2.amino_acid, ires1, ires2, ihit))
+
+               arg.timer.checkpoint('xtal_search')
 
                xtal_poses = mof.xtal_build.xtal_build(
                   pdb_name,
@@ -197,16 +224,21 @@ def xtal_search_two_residues(
                   metal_axis,
                   rpxbody,
                   tag,
-                  debug=False,
+                  **arg,
                )
+               if not xtal_poses: continue
+
                # for Xalign, xtal_pose, rpxbody_pdb in xtal_poses:
                # xtal_pose.dump_pdb(tag + '_xtal.pdb')
                # rp.util.dump_str(rpxbody_pdb, tag + '_clashcheck.pdb')
                # assert 0
 
-               for ixtal, (xalign, xtal_pose, body_pdb) in enumerate(xtal_poses):
+               arg.timer.checkpoint('xtal_search')
+
+               for ixtal, (xalign, xtal_pose, body_pdb, ncontact,
+                           energy) in enumerate(xtal_poses):
                   celldim = xtal_pose.pdb_info().crystinfo().A()
-                  fname = f"{pdb_name}_{xspec.spacegroup.replace(' ','_')}_{tag}_cell{int(celldim):03}"
+                  fname = f"{pdb_name}_{xspec.spacegroup.replace(' ','_')}_{tag}_cell{int(celldim):03}_ncontact{ncontact:02}_score{int(energy):03}"
                   results.append(
                      mof.result.Result(
                         xspec,
@@ -215,25 +247,29 @@ def xtal_search_two_residues(
                         rpxbody,
                         xtal_pose,
                         body_pdb,
+                        ncontact,
+                        energy,
                      ))
-               if not xtal_poses: continue
+
+               arg.timer.checkpoint('build_result')
 
                ### debug crap
-               print(
-                  "HIT",
-                  rotcloud1.amino_acid,
-                  rotcloud2.amino_acid,
-                  ires1,
-                  ires2,
-                  np.round(np.degrees(matchsymang), 3),
-                  hit,
-                  rotcloud1.rotchi[hit[0]],
-                  rotcloud2.rotchi[hit[1]],
-                  # sc_2res,
-                  np.round(dist[tuple(hit)], 3),
-                  np.round(ang_delta[tuple(hit)], 3),
-                  np.round(sc_2res - sc_2res_orig, 3),
-               )
+               if xtal_poses:
+                  print(
+                     "HIT",
+                     rotcloud1.amino_acid,
+                     rotcloud2.amino_acid,
+                     ires1,
+                     ires2,
+                     np.round(np.degrees(matchsymang), 3),
+                     hit,
+                     rotcloud1.rotchi[hit[0]],
+                     rotcloud2.rotchi[hit[1]],
+                     # sc_2res,
+                     np.round(dist[tuple(hit)], 3),
+                     np.round(ang_delta[tuple(hit)], 3),
+                     np.round(sc_2res - sc_2res_orig, 3),
+                  )
                # rotcloud1.dump_pdb(fn + '_a.pdb', stub1, which=hit[0])
                # rotcloud2.dump_pdb(fn + '_b.pdb', stub2, which=hit[1])
                # rpxbody2.dump_pdb(fn + '_sym.pdb')
@@ -243,6 +279,8 @@ def xtal_search_two_residues(
                # pose2mut.dump_pdb(tag + '_after.pdb')
                # assert 0
                ### end debug crap
+
+   arg.timer.checkpoint('xtal_search')
 
    return results
 
