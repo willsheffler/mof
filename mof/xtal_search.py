@@ -117,7 +117,7 @@ def xtal_search_two_residues(
          # print(f'{ires1:02} {ires2:02} {np.sort(dist.flat)[:5]}')
          dot = np.sum(
             rotframes1[:, :, 0].reshape(-1, 1, 4) * rotframes2[:, :, 0].reshape(1, -1, 4), axis=2)
-         ang = np.degrees(np.arccos(dot))
+         ang = np.degrees(np.arccos(np.clip(dot, -1, 1)))
          ang_delta = np.abs(ang - 109.4712206)
 
          arg.timer.checkpoint('rotcloud ang')
@@ -127,8 +127,9 @@ def xtal_search_two_residues(
          bestrot2 = np.argmin(err, axis=1)
          disterr = dist[np.arange(len(bestrot2)), bestrot2]
          angerr = ang_delta[np.arange(len(bestrot2)), bestrot2]
-         ok = ((rot1err2 < err_tolerance) * (angerr < angle_err_tolerance) *
-               (disterr < dist_err_tolerance))
+         ok = (rot1err2 < err_tolerance)
+         ok *= (angerr < angle_err_tolerance)
+         ok *= (disterr < dist_err_tolerance)
          # ok = rot1err2 < err_tolerance
          # ok = disterr < dist_err_tolerance
          # ok = angerr < angle_err_tolerance
@@ -185,16 +186,11 @@ def xtal_search_two_residues(
 
                arg.timer.checkpoint('axes geom checks')
 
+               # pose.dump_pdb('before.pdb')
                pose2mut = mof.util.mutate_two_res(
-                  pose,
-                  ires1,
-                  rotcloud1.amino_acid,
-                  rotcloud1.rotchi[hit[0]],
-                  ires2,
-                  rotcloud2.amino_acid,
-                  rotcloud2.rotchi[hit[1]],
-                  sym_num,
-               )
+                  pose, ires1, rotcloud1.amino_acid, rotcloud1.rotchi[hit[0]], ires2,
+                  rotcloud2.amino_acid, rotcloud2.rotchi[hit[1]], sym_num)
+               # pose2mut.dump_pdb('after.pdb')
 
                search_spec.sfxn_filter(pose2mut)
                sc_2res = (pose2mut.energies().residue_total_energy(ires1) +
@@ -204,6 +200,9 @@ def xtal_search_two_residues(
 
                arg.timer.checkpoint('mut_two_res')
 
+               # print('scores', sc_2res, sc_2res_orig)
+
+               # if sc_2res > arg.max_2res_score: continue
                if sc_2res - sc_2res_orig > arg.max_2res_score: continue
 
                tag = ('hit_%s_%s_%i_%i_%i' %

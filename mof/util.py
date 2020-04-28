@@ -162,26 +162,54 @@ def minimize(pose, sfxn):
    for i in range(5):
       minmover.apply(pose)
 
+def fix_bb_h(pose, ires):
+   c = np.array(pose.residue((ires - 2) % len(pose.residues) + 1).xyz('C'))
+   n = np.array(pose.residue(ires).xyz('N'))
+   ca = np.array(pose.residue(ires).xyz('CA'))
+
+   hpos = (n - (ca + c) / 2)
+   hpos = n + hpos / np.linalg.norm(hpos)
+
+   hpos = xyzVec(*hpos[:3])
+   pose.set_xyz(AtomID(pose.residue(ires).atom_index('H'), ires), hpos)
+
+# def fix_bb_o(pose, ires):
+#    r = pose.residue(ires)
+#    io = r.atom_index('O')
+#    crd = r.build_atom_ideal(io, pose.conformation())
+#    pose.set_xyz(AtomID(io, ires), crd)
+
+def fix_bb_h_all(pose):
+   for ir in range(1, len(pose.residues) + 1):
+      if pose.residue(ir).name3() != 'PRO':
+         fix_bb_h(pose, ir)
+
 def mutate_two_res(pose, ires1in, aa1, chis1, ires2in, aa2, chis2, symnum=1):
-   pose = pose.clone()
-   assert len(pose.residues) % symnum == 0
-   nres = len(pose.residues) // symnum
+   pose2 = pose.clone()
+   assert len(pose2.residues) % symnum == 0
+   nres = len(pose2.residues) // symnum
    for isym in range(symnum):
       ires1 = (ires1in - 1) % nres + 1 + isym * nres
       ires2 = (ires2in - 1) % nres + 1 + isym * nres
       mut = rosetta.protocols.simple_moves.MutateResidue()
-      mut.set_preserve_atom_coords(True)
+      mut.set_preserve_atom_coords(False)
       mut.set_res_name(aa1)
       mut.set_target(ires1)
-      mut.apply(pose)
+      mut.apply(pose2)
       for ichi, chi in enumerate(chis1):
-         pose.set_chi(ichi + 1, ires1, chi)
+         pose2.set_chi(ichi + 1, ires1, chi)
       mut.set_res_name(aa2)
       mut.set_target(ires2)
-      mut.apply(pose)
+      mut.apply(pose2)
       for ichi, chi in enumerate(chis2):
-         pose.set_chi(ichi + 1, ires2, chi)
-   return pose
+         pose2.set_chi(ichi + 1, ires2, chi)
+      # pose2.dump_pdb('before.pdb')
+      for ir in range(1, len(pose2.residues) + 1):
+         pose2.set_xyz(AtomID(pose2.residue(ir).atom_index('O'), ir), pose.residue(ir).xyz('O'))
+         if pose2.residue(ir).name3() != 'PRO':
+            fix_bb_h(pose2, ir)
+      # pose2.dump_pdb('after.pdb')
+   return pose2
 
 def mut_to_ligand(pose, residue, ligands, sym_of_ligand, debug=False):
    # For a given pose, attempts to mutate each residue (one at a time) to a new residue from my list of ligands

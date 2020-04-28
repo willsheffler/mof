@@ -36,8 +36,9 @@ def main():
       print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
       # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
       # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
-      pdb_gen = mof.util.gen_pdbs(
-         ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
+      pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c.2.6_0001.pdb'])
+      # pdb_gen = mof.util.gen_pdbs(
+      # ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
    prepped_pdb_gen = mof.util.prep_poses(pdb_gen)
 
    results = list()
@@ -47,13 +48,17 @@ def main():
    arg.timer.checkpoint('main')
 
    for pose in prepped_pdb_gen:
+      mof.util.fix_bb_h_all(pose)
       for rc1, rc2 in get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
-         try:
-            results.extend(
-               mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
-         except Exception as e:
-            print('some error on', rc1.amino_acid, rc2.amino_acid)
-            print(e)
+         results.extend(
+            mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
+         # try:
+         #    results.extend(
+         #       mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
+         # except Exception as e:
+         #    print('some error on', rc1.amino_acid, rc2.amino_acid)
+         #    print('Exception:', type(e))
+         #    print(repr(e))
 
    if not results:
 
@@ -128,7 +133,7 @@ def get_rotclouds(**arg):
 
 def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
 
-   # return [(lC, dE)]
+   # return [(dC, lD)]
 
    return [
       # (dC, dC),
