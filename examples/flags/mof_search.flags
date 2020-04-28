@@ -1,0 +1,15 @@
+--scale_number_of_rotamers 1.5
+--max_bb_redundancy 0.3
+--err_tolerance 2.0
+--dist_err_tolerance 1.0
+--angle_err_tolerance 15
+--min_dist_to_z_axis 6.0
+--sym_axes_angle_tolerance 6.0
+--angle_to_cart_err_ratio 20.0
+--max_dun_score 6.0
+--clash_dis 3.3
+--contact_dis 7.0
+--min_contacts 0
+--max_sym_score 50.0
+--min_cell_size 0
+--max_cell_size 36

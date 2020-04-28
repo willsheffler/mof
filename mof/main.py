@@ -1,54 +1,25 @@
-import sys, numpy as np, rpxdock as rp, os, pickle
+import sys, numpy as np, rpxdock as rp, os, pickle, mof
 from concurrent.futures import ProcessPoolExecutor
-
-import mof
-# from mof.xtal_search import xtal_search_single_residue, XtalSearchSpec
-_DEBUG = False
 
 def main():
 
-   arg = rp.Bunch()
-   arg.max_bb_redundancy = 1.0
-   arg.err_tolerance = 1.5,
-   arg.dist_err_tolerance = 1.0,
-   arg.angle_err_tolerance = 15,
-   arg.min_dist_to_z_axis = 6.0,
-   arg.sym_axes_angle_tolerance = 5.0,
-   arg.angle_to_cart_err_ratio = 20.0,
-   arg.max_dun_score = 4.0
-   arg.clash_dis = 3.5
-   arg.contact_dis = 7.0
-   arg.min_contacts = 30
-   arg.max_sym_score = 30.0
-   arg.min_cell_size = 0
-   arg.max_cell_size = 45
-
-   if True:
-      arg.chiresl_his1 = 3.0
-      arg.chiresl_his2 = 8.0
-      arg.chiresl_cys1 = 6.0
-      arg.chiresl_cys2 = 8.0
-      arg.chiresl_asp1 = 8.0
-      arg.chiresl_asp2 = 5.0
-      arg.chiresl_glu1 = 6.0
-      arg.chiresl_glu2 = 12.0
-      arg.chiresl_glu3 = 6.0
-   else:
-      arg.chiresl_his1 = 6.0
-      arg.chiresl_his2 = 12.0
-      arg.chiresl_cys1 = 9.0
-      arg.chiresl_cys2 = 12.0
-      arg.chiresl_asp1 = 12.0
-      arg.chiresl_asp2 = 8.0
-      arg.chiresl_glu1 = 12.0
-      arg.chiresl_glu2 = 18.0
-      arg.chiresl_glu3 = 12.0
-
+   arg = mof.options.get_cli_args()
    arg.timer = rp.Timer().start()
-
-   # arg.dist_err_tolerance = 0.8
-   # arg.angle_err_tolerance = 15.0
-   # arg.min_dist_to_z_axis = 6.0
+   arg.scale_number_of_rotamers = 1.0
+   arg.max_bb_redundancy = 0.3
+   arg.err_tolerance = 2.0
+   arg.dist_err_tolerance = 1.5
+   arg.angle_err_tolerance = 25
+   arg.min_dist_to_z_axis = 6.0
+   arg.sym_axes_angle_tolerance = 10.0
+   arg.angle_to_cart_err_ratio = 20.0
+   arg.max_dun_score = 6.0
+   arg.clash_dis = 3.3
+   arg.contact_dis = 7.0
+   arg.min_contacts = 0
+   arg.max_sym_score = 100.0
+   arg.min_cell_size = 0
+   arg.max_cell_size = 40
 
    # ligands = ['HZ4', 'DHZ4']
    # xspec = xtal_spec.get_xtal_spec('f432')
@@ -83,34 +54,14 @@ def main():
       print('!!! no pdb list input, using test "only_one" !!!')
       print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
       # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
-      pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.101.7_0001.pdb'])
+      # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
+      pdb_gen = mof.util.gen_pdbs(
+         ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
    prepped_pdb_gen = mof.util.prep_poses(pdb_gen)
 
    results = list()
 
-   tmp_cache_file = 'tmp_cache.pickle'
-   if os.path.exists(tmp_cache_file):
-      lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = rp.util.load(tmp_cache_file)
-   else:
-      chi_range = lambda resl: np.arange(-180, 180, resl)
-      chi_asp = [chi_range(x) for x in (arg.chiresl_asp1, arg.chiresl_asp2)]
-      chi_cys = [chi_range(x) for x in (arg.chiresl_cys1, arg.chiresl_cys2)]
-      chi_his = [chi_range(x) for x in (arg.chiresl_his1, arg.chiresl_his2)]
-      chi_glu = [chi_range(x) for x in (arg.chiresl_glu1, arg.chiresl_glu2, arg.chiresl_glu3)]
-
-      lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0)
-      lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0)
-      lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0)
-      lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0)
-      lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0)
-
-      dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0)
-      dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0)
-      dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0)
-      dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0)
-      dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0)
-
-      rp.util.dump([lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ], tmp_cache_file)
+   lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = get_rotclouds(**arg)
 
    arg.timer.checkpoint('main')
 
@@ -130,7 +81,7 @@ def main():
          try:
             results.extend(
                mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
-         except Error as e:
+         except Exception as e:
             print('some error on', rc1.amino_acid, rc2.amino_acid)
             print(e)
 
@@ -147,18 +98,67 @@ def main():
                                                max_cluster=10000)
    arg.timer.checkpoint('filter_redundancy')
 
+   os.makedirs(os.path.dirname(arg.output_prefix), exist_ok=True)
    for i, result in enumerate(results):
       if i in non_redundant:
-         print('dumping', result.label)
-         result.xtal_asym_pose.dump_pdb('asym_' + result.label + '.pdb')
+         fname = arg.output_prefix + 'asym_' + result.label + '.pdb'
+         print('dumping', fname)
+         result.xtal_asym_pose.dump_pdb(fname)
          # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.label + '.pdb')
    arg.timer.checkpoint('dumping pdbs')
 
    print("DONE")
 
+def get_rotclouds(**arg):
+   arg = rp.Bunch(arg)
+
+   chiresl_asp1 = arg.chiresl_asp1 / arg.scale_number_of_rotamers
+   chiresl_asp2 = arg.chiresl_asp2 / arg.scale_number_of_rotamers
+   chiresl_cys1 = arg.chiresl_cys1 / arg.scale_number_of_rotamers
+   chiresl_cys2 = arg.chiresl_cys2 / arg.scale_number_of_rotamers
+   chiresl_his1 = arg.chiresl_his1 / arg.scale_number_of_rotamers
+   chiresl_his2 = arg.chiresl_his2 / arg.scale_number_of_rotamers
+   chiresl_glu1 = arg.chiresl_glu1 / arg.scale_number_of_rotamers
+   chiresl_glu2 = arg.chiresl_glu2 / arg.scale_number_of_rotamers
+   chiresl_glu3 = arg.chiresl_glu3 / arg.scale_number_of_rotamers
+
+   os.makedirs(arg.rotcloud_cache, exist_ok=True)
+
+   params = (arg.chiresl_his1, arg.chiresl_his2, arg.chiresl_cys1, arg.chiresl_cys2,
+             arg.chiresl_asp1, arg.chiresl_asp2, arg.chiresl_glu1, arg.chiresl_glu2,
+             arg.chiresl_glu3, arg.maxdun_cys, arg.maxdun_asp, arg.maxdun_glu, arg.maxdun_his)
+   ident = mof.util.hash_str_to_int(str(params))
+
+   cache_file = arg.rotcloud_cache + '/%i.pickle' % ident
+   if os.path.exists(cache_file):
+      lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = rp.util.load(cache_file)
+   else:
+      print('building rotamer clouds')
+      chi_range = lambda resl: np.arange(-180, 180, resl)
+      chi_asp = [chi_range(x) for x in (chiresl_asp1, chiresl_asp2)]
+      chi_cys = [chi_range(x) for x in (chiresl_cys1, chiresl_cys2)]
+      chi_his = [chi_range(x) for x in (chiresl_his1, chiresl_his2)]
+      chi_glu = [chi_range(x) for x in (chiresl_glu1, chiresl_glu2, chiresl_glu3)]
+
+      lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0)
+      lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0)
+      lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0)
+      lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0)
+      lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0)
+
+      dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0)
+      dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0)
+      dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0)
+      dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0)
+      dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0)
+
+      rp.util.dump([lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ], cache_file)
+
+   return lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ
+
 def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
 
-   # return [(dC, dE)]
+   # return [(lC, dE)]
 
    return [
       # (dC, dC),

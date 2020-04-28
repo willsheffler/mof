@@ -1,5 +1,5 @@
 import sys, pandas, numpy as np, rmsd, rpxdock as rp, rpxdock.homog as hm, xarray as xr
-
+from hashlib import sha1
 import pyrosetta
 from pyrosetta import rosetta
 from pyrosetta.rosetta import core
@@ -170,15 +170,14 @@ def mutate_two_res(pose, ires1in, aa1, chis1, ires2in, aa2, chis2, symnum=1):
       ires1 = (ires1in - 1) % nres + 1 + isym * nres
       ires2 = (ires2in - 1) % nres + 1 + isym * nres
       mut = rosetta.protocols.simple_moves.MutateResidue()
+      mut.set_preserve_atom_coords(True)
       mut.set_res_name(aa1)
       mut.set_target(ires1)
-      mut.set_preserve_atom_coords(False)
       mut.apply(pose)
       for ichi, chi in enumerate(chis1):
          pose.set_chi(ichi + 1, ires1, chi)
       mut.set_res_name(aa2)
       mut.set_target(ires2)
-      mut.set_preserve_atom_coords(False)
       mut.apply(pose)
       for ichi, chi in enumerate(chis2):
          pose.set_chi(ichi + 1, ires2, chi)
@@ -403,3 +402,9 @@ def output_data(pdb_name, residue, mut_res_name, pose_num, list_of_spacegroups):
    o.write("MUTATED RESIDUE ID: %s\n" % mut_res_name)
    o.write("ROTAMER NUMBER: %s\n\n" % pose_num)
    o.write("COMPATIBLE SPACEGROUP(S): \n%s\n" % list_of_spacegroups)
+
+def hash_str_to_int(s):
+   if isinstance(s, str):
+      s = s.encode()
+   buf = sha1(s).digest()[:8]
+   return int(abs(np.frombuffer(buf, dtype="i8")[0]))

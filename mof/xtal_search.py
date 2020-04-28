@@ -65,8 +65,8 @@ def xtal_search_two_residues(
    last_res = rt.core.pose.chain_end_res(pose).pop()
    total_res = int(last_res)
 
-   sym_num = pose.chain(last_res)
-   sym = int(sym_num)
+   sym_num = 3  # pose.chain(last_res)
+   sym = 3  # int(sym_num)
    if sym_num < 2:
       print('bad pdb', p_n)
       return list()
@@ -77,8 +77,7 @@ def xtal_search_two_residues(
 
    for ires1 in range(1, asym_nres + 1):
       # if pose.residue_type(ires1) not in (spec.rts.name_map('ALA'), spec.rts.name_map('DALA')):
-      if pose.residue_type(ires1) in dont_replace_these_aas:
-         continue
+      if pose.residue_type(ires1) in dont_replace_these_aas: continue
       stub1 = rpxbody.stub[ires1 - 1]
 
       arg.timer.checkpoint('xtal_search')
@@ -205,7 +204,7 @@ def xtal_search_two_residues(
 
                arg.timer.checkpoint('mut_two_res')
 
-               if sc_2res - sc_2res_orig > 5.0: continue
+               if sc_2res - sc_2res_orig > arg.max_2res_score: continue
 
                tag = ('hit_%s_%s_%i_%i_%i' %
                       (rotcloud1.amino_acid, rotcloud2.amino_acid, ires1, ires2, ihit))
@@ -309,9 +308,9 @@ def xtal_search_single_residue(search_spec, pose, **arg):
    peptide_sym = "C%i" % sym_num
 
    for ires in range(1, int(total_res / sym) + 1):
-      if pose.residue_type(ires) not in (spec.rts.name_map('ALA'), spec.rts.name_map('DALA')):
+      if pose.residue_type(ires) not in (spec.rts.name_map('GLY'), spec.rts.name_map('ALA'),
+                                         spec.rts.name_map('DALA')):
          continue
-
       lig_poses = util.mut_to_ligand(pose, ires, spec.ligands, spec.sym_of_ligand)
       bad_rots = 0
       for ilig, lig_pose in enumerate(lig_poses):
