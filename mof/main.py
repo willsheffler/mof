@@ -5,26 +5,7 @@ def main():
 
    arg = mof.options.get_cli_args()
    arg.timer = rp.Timer().start()
-   arg.scale_number_of_rotamers = 1.0
-   arg.max_bb_redundancy = 0.3
-   arg.err_tolerance = 2.0
-   arg.dist_err_tolerance = 1.5
-   arg.angle_err_tolerance = 25
-   arg.min_dist_to_z_axis = 6.0
-   arg.sym_axes_angle_tolerance = 10.0
-   arg.angle_to_cart_err_ratio = 20.0
-   arg.max_dun_score = 6.0
-   arg.clash_dis = 3.3
-   arg.contact_dis = 7.0
-   arg.min_contacts = 0
-   arg.max_sym_score = 100.0
-   arg.min_cell_size = 0
-   arg.max_cell_size = 40
 
-   # ligands = ['HZ4', 'DHZ4']
-   # xspec = xtal_spec.get_xtal_spec('f432')
-   # ligands = ['HZD', 'DHZD']
-   # xspec = xtal_spec.get_xtal_spec(None)
    search_spec = mof.xtal_search.XtalSearchSpec(
       # spacegroup='p4132',
       spacegroup='i213',
@@ -47,7 +28,7 @@ def main():
    )
 
    if len(sys.argv) > 1:
-      pdb_gen = mof.util.gen_pdbs(sys.argv[1:])
+      pdb_gen = mof.util.gen_pdbs(arg.inputs)
    else:
       # test
       print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
@@ -66,17 +47,6 @@ def main():
    arg.timer.checkpoint('main')
 
    for pose in prepped_pdb_gen:
-
-      # r = mof.xtal_search.xtal_search_single_residue(search_spec, pose, debug=_DEBUG)
-      # with rp.util.InProcessExecutor() as exe:
-      #    # with ProcessPoolExecutor() as exe:
-      #    jobs = get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ)
-      #    futures = [
-      #       exe.submit(mof.xtal_search.xtal_search_two_residues, search_spec, pose, rc1, rc2,
-      #                  **arg) for rc1, rc2 in jobs
-      #    ]
-      #    results = sum([f.result() for f in futures], [])
-
       for rc1, rc2 in get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
          try:
             results.extend(
