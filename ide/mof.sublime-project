@@ -11,6 +11,14 @@
          "name": "util_runtests.py",
          "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python ide/runtests.py $file &> sublime_build.log"
       },
+      {
+         "name": "util_runtests.py pymol",
+         "shell_cmd": "cd $folder; rm *.pdb; CC='ccache gcc' PYTHONPATH=. python ide/runtests.py $file &> sublime_build.log; pymol body_*.pdb"
+      },
+      {
+         "name": "tmp.py",
+         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python tmp.py &> sublime_build.log"
+      },
    ],
    "folders":
    [

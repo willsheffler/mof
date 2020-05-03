@@ -17,6 +17,7 @@ _overrides = {
 _file_mappings = {
    "xtal_search.py": ["mof/main.py"],
    "xtal_build.py": ["mof/main.py"],
+   "util.py": ["mof/main.py"],
 }
 _post = defaultdict(lambda: "")
 

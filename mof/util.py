@@ -147,6 +147,7 @@ def prep_poses(pose_gen):
       mut_l.set_selector(checkable_res_neg)
       mut_l.set_res_name('ALA')
       mut_l.apply(pose)
+      center_pose(pose)
       yield pose
    #    prepped_pdbs.append(pose)
    # return prepped_pdbs
@@ -163,6 +164,8 @@ def minimize(pose, sfxn):
       minmover.apply(pose)
 
 def fix_bb_h(pose, ires):
+   # if pose.residue(ires).name() == 'PRO': return
+   # if pose.residue(ires).name() == 'DPRO': return
    c = np.array(pose.residue((ires - 2) % len(pose.residues) + 1).xyz('C'))
    n = np.array(pose.residue(ires).xyz('N'))
    ca = np.array(pose.residue(ires).xyz('CA'))
@@ -171,7 +174,8 @@ def fix_bb_h(pose, ires):
    hpos = n + hpos / np.linalg.norm(hpos)
 
    hpos = xyzVec(*hpos[:3])
-   pose.set_xyz(AtomID(pose.residue(ires).atom_index('H'), ires), hpos)
+   if pose.residue(ires).has('H'):
+      pose.set_xyz(AtomID(pose.residue(ires).atom_index('H'), ires), hpos)
 
 # def fix_bb_o(pose, ires):
 #    r = pose.residue(ires)
@@ -179,10 +183,20 @@ def fix_bb_h(pose, ires):
 #    crd = r.build_atom_ideal(io, pose.conformation())
 #    pose.set_xyz(AtomID(io, ires), crd)
 
+def center_pose(pose):
+   crds = list()
+   for i in range(1, len(pose.residues) + 1):
+      crds.append(np.array(pose.residue(i).xyz('CA')))
+   crds = np.stack(crds)
+   tocen = -np.mean(crds, axis=0)
+   print(tocen)
+   Rx = rosetta.numeric.xyzMatrix_double_t.cols(1, 0, 0, 0, 1, 0, 0, 0, 1)
+   v = rosetta.numeric.xyzVector_double_t(tocen[0], tocen[1], tocen[2])
+   pose.apply_transform_Rx_plus_v(Rx, v)
+
 def fix_bb_h_all(pose):
    for ir in range(1, len(pose.residues) + 1):
-      if pose.residue(ir).name3() != 'PRO':
-         fix_bb_h(pose, ir)
+      fix_bb_h(pose, ir)
 
 def mutate_two_res(pose, ires1in, aa1, chis1, ires2in, aa2, chis2, symnum=1):
    pose2 = pose.clone()

@@ -62,7 +62,8 @@ def xtal_build(
       # axis1 = np.array([0.57735, 0.57735, 0.57735, 0])
       # assert 0, 'maybe ok, check this new branch'
    else:
-      raise NotImplementedError('both sym elements not at origin')
+      print('both sym elements not at origin')
+      # raise NotImplementedError('both sym elements not at origin')
 
    if sym1 == peptide_sym:
       pt1, ax1 = peptide_orig, peptide_axis
@@ -75,35 +76,45 @@ def xtal_build(
 
    nfold1 = float(str(sym1)[1])
    nfold2 = float(str(sym2)[1])
+   ax1 = ax1 / np.linalg.norm(ax1)
+   ax2 = ax2 / np.linalg.norm(ax2)
 
    # print(rp.homog.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral))
-   assert np.allclose(rp.homog.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral))
-   assert np.allclose(rp.homog.line_angle(ax1, ax2), np.radians(dihedral))
+   assert np.allclose(rp.homog.line_angle(metal_sym_axis, peptide_axis), np.radians(dihedral),
+                      atol=1e-3)
+   assert np.allclose(rp.homog.line_angle(ax1, ax2), np.radians(dihedral), atol=1e-3)
 
    # print(rp.homog.line_angle(ax1, ax2), np.radians(dihedral), dihedral)
 
    # print('sym1', sym1, orig1, axis1, ax1)
    # print('sym2', sym2, orig2, axis2, ax2)
 
-   Xalign, delta = rp.homog.align_lines_isect_axis2(pt1, ax1, pt2, ax2, axis1, orig1, axis2,
-                                                    orig2)
+   #
+
+   # Xalign, _ = rp.homog.align_lines_isect_axis2(pt1, ax1, pt2, ax2, axis1, orig1, axis2, orig2)
+   Xalign, scale = rp.homog.scale_translate_lines_isect_lines(pt1, ax1, pt2, ax2, orig1, axis1,
+                                                              orig2, axis2)
+
    xpt1, xax1 = Xalign @ pt1, Xalign @ ax1
    xpt2, xax2 = Xalign @ pt2, Xalign @ ax2
    # print('aligned1', xpt1, xax1)
    # print('aligned2', xpt2, xax2)
    assert np.allclose(rp.homog.line_angle(xax1, axis1), 0.0, atol=0.001)
    assert np.allclose(rp.homog.line_angle(xax2, axis2), 0.0, atol=0.001)
-   assert np.allclose(rp.homog.line_angle(xpt1, axis1), 0.0, atol=0.001)
+
+   # from previous req that ax1 isect the origin??
+   # assert np.allclose(rp.homog.line_angle(xpt1, axis1), 0.0, atol=0.001)
+
    isect_error2 = rp.homog.line_line_distance_pa(xpt2, xax2, [0, 0, 0, 1], orig2)
    assert np.allclose(isect_error2, 0, atol=0.001)
 
-   isect = rp.homog.line_line_closest_points_pa(xpt2, xax2, [0, 0, 0, 1], orig2)
-   isect = (isect[0] + isect[1]) / 2
-   orig = orig2  # not always??
-   celldims = [isect[i] / o for i, o in enumerate(orig[:3]) if abs(o) > 0.001]
+   # isect = rp.homog.line_line_closest_points_pa(xpt2, xax2, [0, 0, 0, 1], orig2)
+   # isect = (isect[0] + isect[1]) / 2
+   # orig = orig2  # not always??
+   # celldims = [isect[i] / o for i, o in enumerate(orig[:3]) if abs(o) > 0.001]
+   celldims = scale[:3]
    assert np.allclose(min(celldims), max(celldims), atol=0.001)
    celldim = abs(min(celldims))
-
    if not (arg.min_cell_size <= celldim <= arg.max_cell_size):
       return []
 
@@ -125,47 +136,62 @@ def xtal_build(
    # print(celldim, orig1[:3], orig2[:3])
    # print('--------------')
 
-   # scale = 100.0
-   # redundant_point = rp.homog.hpoint([10, 10, 10])
-   # # print('redundant_point', redundant_point)
-   # # print(Xalign @ redundant_point)
-   # g1 = rp.homog.hrot(axis1, (2 * np.pi / nfold1) * np.arange(1, nfold1), scale * orig1[:3])
-   # g2 = rp.homog.hrot(axis2, (2 * np.pi / nfold2) * np.arange(1, nfold2), scale * orig2[:3])
-   # g = np.concatenate([g1, g2])
-   # symxforms = rp.homog.expand_xforms(
-   #    g,
-   #    redundant_point=redundant_point,
-   #    N=16,
-   #    maxrad=2.0 * scale,
-   # )
-   # rp.dump(list(symxforms), 'i213_redundant111_n16_maxrad2.pickle')
-   # symxforms = rp.load('i213_redundant111_n16_maxrad2_ORIG.pickle')
-   # print(len(symxforms))
-   # print(type(symxforms[0]))
-   # symxforms = np.stack(symxforms, axis=0)
-   # print(symxforms.shape)
-   # symxforms[:, :3, 3] /= scale
-   # # print(np.around(symxforms[:, :3, 3], 3))
-   # rp.dump(symxforms, 'i213_redundant111_n16_maxrad2.pickle')
-   # # assert 0
+   if xspec.frames is None:
+      assert 0
+      dummy_scale = 100.0
+      if sym1 == peptide_sym:
+         redundant_point = rp.homog.hpoint(dummy_scale * orig1[:3] + 10 * axis1[:3])
+      else:
+         redundant_point = rp.homog.hpoint(dummy_scale * orig2[:3] + 10 * axis2[:3])
+      # redundant_point = rp.homog.rand_point()
+      # redundant_point[:3] *= dummy_scale
+
+      print('redundant_point', redundant_point)
+      print(Xalign @ redundant_point)
+
+      g1 = rp.homog.hrot(axis1, (2 * np.pi / nfold1) * np.arange(nfold1), dummy_scale * orig1[:3])
+      g2 = rp.homog.hrot(axis2, (2 * np.pi / nfold2) * np.arange(nfold2), dummy_scale * orig2[:3])
+      g = np.concatenate([g1, g2])
+      symxforms = list(
+         rp.homog.expand_xforms(g, redundant_point=redundant_point, N=12,
+                                maxrad=3.0 * dummy_scale))
+      # rp.dump(list(symxforms), 'i213_redundant111_n16_maxrad2.pickle')
+      # symxforms = rp.load('i213_redundant111_n16_maxrad2_ORIG.pickle')
+      print('num symframes', len(symxforms), type(symxforms[0]))
+      symxforms = np.stack(symxforms, axis=0)
+      print('symframes shape', symxforms.shape)
+      symxforms[:, :3, 3] /= dummy_scale
+      # print(np.around(symxforms[:, :3, 3], 3))
+
+      rp.dump(symxforms, 'new_symframes.pickle')
+
+      symxforms[:, :3, 3] *= celldim
+      rpxbody.move_to(Xalign)
+      rpxbody.dump_pdb('body_I.pdb')
+      for i, x in enumerate(symxforms):
+         rpxbody.move_to(x @ Xalign)
+         rpxbody.dump_pdb('body_%i.pdb' % i)
+
+      assert 0, "must rerun with newly genrated symframes"
+
    symxforms = xspec.frames.copy()
    symxforms[:, :3, 3] *= celldim
 
-   g1 = rp.homog.hrot(axis1, (2 * np.pi / nfold1) * np.arange(0, nfold1), celldim * orig1[:3])
-   g2 = rp.homog.hrot(axis2, (2 * np.pi / nfold2) * np.arange(0, nfold2), celldim * orig2[:3])
-   # # print('g1', axis1.round(3), 360 / nfold1, (celldim * orig1[:3]).round(3))
-   # # print('g2', axis2.round(3), 360 / nfold2, (celldim * orig2[:3]).round(3))
-   if swapped: g1, g2 = g2, g1
-   g = np.concatenate([g1, g2])
-   # print('swapped', swapped)
-   redundant_point = (xpt1 + xax1) if first_is_peptide else (xpt2 + xax2)
-   # redundant_point = xpt1 if first_is_peptide else xpt2
-   # print('redundancy point', redundant_point)
-   # # rpxbody.move_to(np.eye(4))
-   # # rpxbody.dump_pdb('a_body.pdb')
-   rpxbody.move_to(Xalign)
-   # # print(0, Xalign @ rp.homog.hpoint([1, 2, 3]))
-   # rpxbody.dump_pdb('a_body_xalign.pdb')
+   # g1 = rp.homog.hrot(axis1, (2 * np.pi / nfold1) * np.arange(0, nfold1), celldim * orig1[:3])
+   # g2 = rp.homog.hrot(axis2, (2 * np.pi / nfold2) * np.arange(0, nfold2), celldim * orig2[:3])
+   # # # print('g1', axis1.round(3), 360 / nfold1, (celldim * orig1[:3]).round(3))
+   # # # print('g2', axis2.round(3), 360 / nfold2, (celldim * orig2[:3]).round(3))
+   # if swapped: g1, g2 = g2, g1
+   # g = np.concatenate([g1, g2])
+   # # print('swapped', swapped)
+   # redundant_point = (xpt1 + xax1) if first_is_peptide else (xpt2 + xax2)
+   # # redundant_point = xpt1 if first_is_peptide else xpt2
+   # # print('redundancy point', redundant_point)
+   # # # rpxbody.move_to(np.eye(4))
+   # # # rpxbody.dump_pdb('a_body.pdb')
+   # rpxbody.move_to(Xalign)
+   # # # print(0, Xalign @ rp.homog.hpoint([1, 2, 3]))
+   # # rpxbody.dump_pdb('a_body_xalign.pdb')
 
    arg.timer.checkpoint()
 
@@ -186,15 +212,11 @@ def xtal_build(
          rpxbody_pdb += pdbstr
       if np.any(rpxbody.intersect(rpxbody,
                                   np.stack(prev) @ Xalign, x @ Xalign, mindis=clash_dis)):
-         # if rpxbody.intersect(rpxbody, Xalign, x @ Xalign, mindis=clash_dis):
          clash = True
          return []
 
       ncontact = rpxbody.contact_count(body_xalign, maxdis=contact_dis)
       tot_ncontact += ncontact
-      # print(ncontact)
-      # if ncontact > 0:
-      # rpxbody.dump_pdb('body_%i_%i.pdb' % (i, ncontact))
 
       prev.append(x)
 

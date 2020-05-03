@@ -5,10 +5,11 @@ def main():
 
    arg = mof.options.get_cli_args()
    arg.timer = rp.Timer().start()
+   arg.scale_number_of_rotamers = 0.5
 
    search_spec = mof.xtal_search.XtalSearchSpec(
-      # spacegroup='p4132',
-      spacegroup='i213',
+      spacegroup='p4132',
+      # spacegroup='i213',
       pept_orig=np.array([0, 0, 0, 1]),
       pept_axis=np.array([0, 0, 1, 0]),
       sym_of_ligand=dict(
@@ -48,17 +49,18 @@ def main():
    arg.timer.checkpoint('main')
 
    for pose in prepped_pdb_gen:
+
       mof.util.fix_bb_h_all(pose)
       for rc1, rc2 in get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
-         results.extend(
-            mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
-         # try:
-         #    results.extend(
-         #       mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
-         # except Exception as e:
-         #    print('some error on', rc1.amino_acid, rc2.amino_acid)
-         #    print('Exception:', type(e))
-         #    print(repr(e))
+         # results.extend(
+         # mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
+         try:
+            results.extend(
+               mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
+         except Exception as e:
+            print('some error on', rc1.amino_acid, rc2.amino_acid)
+            print('Exception:', type(e))
+            print(repr(e))
 
    if not results:
 

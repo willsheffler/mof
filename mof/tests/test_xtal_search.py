@@ -16,6 +16,7 @@ def test_xtal_search_2res_i213(c3_peptide, rotcloud_asp, rotcloud_his):
    arg.contact_dis = 7.0
    arg.min_contacts = 0
    arg.max_sym_score = 9e9
+   arg.max_2res_score = 10
 
    search_spec = mof.xtal_search.XtalSearchSpec(
       spacegroup='i213',
