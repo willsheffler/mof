@@ -70,6 +70,7 @@ target/
 dask-worker-space
 
 *~
+._*
 
 *.o
 
@@ -78,8 +79,6 @@ _khash_ffi.c
 .worms_pytest_cache/splices
 .worms_pytest_cache/poses
 
-*.info
-*.pdb
 
 .rendered.*
 .*.cppimporthash
