@@ -66,11 +66,15 @@ class RotamerCloud(ABC):
       self.rotchi = np.stack(self.rotchi)
       self.frameidx = np.stack(self.frameidx)
       self.rotframes = np.stack(self.rotframes)
-      self.pose1res = pose
 
       print(
          f'created RotamerCloud {self.amino_acid} nrots: {len(np.unique(self.rotbin))} nframes: {len(self.rotbin)}'
       )
+
+   def pose1res(self):
+      pose = make_1res_pose(self.amino_acid)
+      xform_pose(pose, np.linalg.inv(self.original_origin))
+      return pose
 
    def subset(self, which):
       new_one = copy.copy(self)
@@ -86,7 +90,7 @@ class RotamerCloud(ABC):
 
    def dump_pdb(self, path=None, position=np.eye(4), which=None):
       if path is None: path = self.amino_acid + '.pdb'
-      res = self.pose1res.residue(1)
+      res = self.pose1res().residue(1)
       natm = res.natoms()
       F = rp.io.pdb_format_atom
       with open(path, 'w') as out:
