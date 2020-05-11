@@ -71,7 +71,7 @@ class RotamerCloud(ABC):
          f'created RotamerCloud {self.amino_acid} nrots: {len(np.unique(self.rotbin))} nframes: {len(self.rotbin)}'
       )
 
-   def pose1res(self):
+   def make_pose1res(self):
       pose = make_1res_pose(self.amino_acid)
       xform_pose(pose, np.linalg.inv(self.original_origin))
       return pose
@@ -90,7 +90,7 @@ class RotamerCloud(ABC):
 
    def dump_pdb(self, path=None, position=np.eye(4), which=None):
       if path is None: path = self.amino_acid + '.pdb'
-      res = self.pose1res().residue(1)
+      res = self.make_pose1res().residue(1)
       natm = res.natoms()
       F = rp.io.pdb_format_atom
       with open(path, 'w') as out:
