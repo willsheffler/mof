@@ -41,6 +41,7 @@ def xtal_search_two_residues(
       min_dist_to_z_axis,
       sym_axes_angle_tolerance,
       angle_to_cart_err_ratio,
+      debug=False,
       **kw,
 ):
    kw = rp.Bunch(kw)
@@ -234,23 +235,29 @@ def xtal_search_two_residues(
 
                kw.timer.checkpoint('xtal_search')
 
-               for ixtal, (xalign, xtal_pose, body_pdb, ncontact,
-                           energy) in enumerate(xtal_poses):
+               for ixtal, (xalign, xtal_pose, body_pdb, ncontact, enonbonded,
+                           solv_frac) in enumerate(xtal_poses):
                   sfxn = rosetta.core.scoring.get_score_function()
-                  xtal_pose_min = mof.minimize.minimize_mof_xtal(sfxn, xspec, xtal_pose, **kw)
+                  xtal_pose_min, mininfo = mof.minimize.minimize_mof_xtal(
+                     sfxn, xspec, xtal_pose, **kw)
                   if not xtal_pose_min: continue
                   celldim = xtal_pose.pdb_info().crystinfo().A()
-                  fname = f"{pdb_name}_{xspec.spacegroup.replace(' ','_')}_{tag}_cell{int(celldim):03}_ncontact{ncontact:02}_score{int(energy):03}"
+                  label = f"{pdb_name}_{xspec.spacegroup.replace(' ','_')}_{tag}_cell{int(celldim):03}_ncontact{ncontact:02}_score{int(enonbonded):03}"
+
+                  info = mininfo.sub(  # adding to mininfo
+                     label=label,
+                     xalign=xalign,
+                     ncontact=ncontact,
+                     enonbonded=enonbonded,
+                     sequence=','.join(r.name() for r in xtal_pose.residues),
+                  )
                   results.append(
-                     mof.result.Result(
-                        xspec,
-                        fname,
-                        xalign,
-                        rpxbody,
-                        xtal_pose_min,
-                        body_pdb,
-                        ncontact,
-                        energy,
+                     rp.Bunch(
+                        xspec=xspec,
+                        rpxbody=rpxbody,
+                        asym_pose=xtal_pose,
+                        asym_pose_min=xtal_pose_min,
+                        info=info,
                      ))
 
                kw.timer.checkpoint('build_result')
@@ -287,6 +294,7 @@ def xtal_search_two_residues(
    return results
 
 def xtal_search_single_residue(search_spec, pose, **kw):
+   raise NotImplemntedError('xtal_search_single_residue needs updating')
    kw = rp.Bunch(kw)
 
    spec = search_spec

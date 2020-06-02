@@ -1,4 +1,4 @@
-import sys, numpy as np, rpxdock as rp, os, pickle, mof
+import sys, numpy as np, rpxdock as rp, os, pickle, mof, xarray as xr
 from concurrent.futures import ProcessPoolExecutor
 
 def main():
@@ -6,7 +6,7 @@ def main():
    kw = mof.options.get_cli_args()
    kw.timer = rp.Timer().start()
    kw.scale_number_of_rotamers = 0.5
-   kw.max_bb_redundancy = 0.3
+   kw.max_bb_redundancy = 0.0  # 0.3
    kw.err_tolerance = 2.0
    kw.dist_err_tolerance = 1.0
    kw.angle_err_tolerance = 15
@@ -21,10 +21,12 @@ def main():
    kw.min_cell_size = 0
    kw.max_cell_size = 36
    kw.sample_cell_spacing = True
+   kw.max_solv_frac = 0.8
+   kw.debug = True
 
    search_spec = mof.xtal_search.XtalSearchSpec(
-      # spacegroup='p4132',
-      spacegroup='i213',
+      spacegroup='p4132',
+      # spacegroup='i213',
       pept_orig=np.array([0, 0, 0, 1]),
       pept_axis=np.array([0, 0, 1, 0]),
       sym_of_ligand=dict(
@@ -47,10 +49,10 @@ def main():
       pdb_gen = mof.util.gen_pdbs(kw.inputs)
    else:
       fnames = ['mof/data/peptides/c.2.6_0001.pdb']
-      print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      print('!!! no pdb list input, using test "only_one" !!!')
-      print('!!!', fnames)
-      print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      print(f'{"":!^80}')
+      print(f'{"no pdb list input, using test only_one":!^80}')
+      print(f'{str(fnames):!^80}')
+      print(f'{"":!^80}')
 
       # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
       # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
@@ -65,39 +67,64 @@ def main():
 
    kw.timer.checkpoint('main')
 
-   for pose in prepped_pdb_gen:
-
-      mof.util.fix_bb_h_all(pose)
-      for rc1, rc2 in get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
-         # try:
-         results.extend(
-            mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
+   try:
+      for pose in prepped_pdb_gen:
+         mof.util.fix_bb_h_all(pose)
+         for rc1, rc2 in get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
+            # try:
+            results.extend(
+               mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
+      success = True
       # except Exception as e:
       # print('some error on', rc1.amino_acid, rc2.amino_acid)
       # print('Exception:', type(e))
       # print(repr(e))
+   except Exception as e:
+      print(f'{"SOME EXCEPTION IN RUN":=^80}')
+      print(e)
+      print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
+      success = False
 
    if not results:
-
       print(kw.timer)
-      print('---- no results ----')
+      print(f'{"NO RESULTS":=^80}')
       return
 
    kw.timer.checkpoint('main')
    xforms = np.array([r.xalign for r in results])
-   non_redundant = rp.filter.filter_redundancy(xforms, results[0].rpxbody, every_nth=1,
-                                               max_bb_redundancy=kw.max_bb_redundancy,
-                                               max_cluster=10000)
+   non_redundant = np.arange(len(results))
+   if kw.max_bb_redundancy > 0.0:
+      non_redundant = rp.filter.filter_redundancy(xforms, results[0].rpxbody, every_nth=1,
+                                                  max_bb_redundancy=kw.max_bb_redundancy,
+                                                  max_cluster=10000)
    kw.timer.checkpoint('filter_redundancy')
 
    os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
    for i, result in enumerate(results):
       if i in non_redundant:
-         fname = kw.output_prefix + 'asym_' + result.label + '.pdb'
+         fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb.gz'
          print('dumping', fname)
-         result.xtal_asym_pose.dump_pdb(fname)
-         # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.label + '.pdb')
+         result.info.fname = fname
+         result.asym_pose_min.dump_pdb(fname)
+         # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.info.label + '.pdb')
    kw.timer.checkpoint('dumping pdbs')
+
+   if len(results) == 0:
+      print('NO RESULTS')
+      return
+
+   results = mof.result.results_to_xarray(results)
+   results.attrs['kw'] = kw
+   rfname = kw.output_prefix + 'info.pickle'
+   if not success:
+      rfname = kw.output_prefix + '__PARTIAL__info.pickle'
+   print('saving results to', rfname)
+   rp.dump(results, rfname)
+   print(f'{" RESULTS ":=^80}')
+   print(results)
+   print(f'{" END RESULTS ":=^80}')
+
+   # concatenate results into pandas table!!!!!!!
 
    print("DONE")
 

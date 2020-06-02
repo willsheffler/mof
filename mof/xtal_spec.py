@@ -15,6 +15,7 @@ class XtalSpecCC(XtalSpec):
          nfold2,
          axis2,
          orig2,
+         nsubs,
    ):
       self.spacegroup = spacegroup
       self.nfold1 = int(nfold1)
@@ -25,6 +26,7 @@ class XtalSpecCC(XtalSpec):
       self.sym2 = 'C%i' % nfold2
       self.axis2 = hm.hnormalized(hm.hvec(axis2))
       self.orig2 = hm.hpoint(orig2)
+      self.nsubs = nsubs
       self.dihedral = np.degrees(hm.angle(axis1, axis2))
       self.axis1d = None
       self.axis2d = None
@@ -57,6 +59,7 @@ _xspec = dict(
       4,
       [1, 0, 0],
       [0, 0, 0],
+      24,
    ),
    p213=XtalSpecCC(
       'P 21 3',
@@ -66,6 +69,7 @@ _xspec = dict(
       3,
       [+1, +1, +1],
       [0, 0, 0],
+      12,
    ),
    i213=XtalSpecCC(
       'I 21 3',
@@ -75,6 +79,7 @@ _xspec = dict(
       2,
       [0, 0, 1],
       [0, -0.25, 0],
+      12,
    ),
    p4132=XtalSpecCC(
       'P 41 3 2',
@@ -84,6 +89,7 @@ _xspec = dict(
       2,
       [0, -1, 1],
       [-0.125, -0.125, -0.125],
+      24,
    ),
    p4332=XtalSpecCC(
       'P 43 3 2',
@@ -93,6 +99,7 @@ _xspec = dict(
       2,
       [0, -1, 1],
       [-0.375, -0.125, -0.125],
+      24,
    ),
 
    # "I213  C2 0,0,1 -  0,-0.25,0   C3 0.57735,0.57735,0.57735 -  0,0,0 54.7356  0.176777 0",

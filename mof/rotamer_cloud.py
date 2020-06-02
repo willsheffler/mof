@@ -1,6 +1,6 @@
 import numpy as np, rpxdock as rp, copy
 from mof import util
-from mof.pyrosetta_init import make_1res_pose, get_dun_energy, rVec, xform_pose
+from mof.pyrosetta_init import make_1res_pose, get_rotamer_energy, rVec, xform_pose
 from abc import ABC, abstractmethod
 """
 CONCERNS:
@@ -45,7 +45,7 @@ class RotamerCloud(ABC):
       for irot, chis in enumerate(rotchi):
          for ichi, chi in enumerate(chis):
             pose.set_chi(ichi + 1, 1, chi)
-         dun = get_dun_energy(pose, 1)
+         dun = get_rotamer_energy(pose, 1)
          if dun > max_dun_score: continue
          # print('rot', irot, dun, chis)
          for iframe, frame in enumerate(self.get_effector_frame(pose.residue(1))):

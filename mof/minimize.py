@@ -8,25 +8,25 @@ def print_nonzero_energies(sfxn, pose):
    for st in sfxn.get_nonzero_weighted_scoretypes():
       print(st)
 
-def minimize_mof_xtal(sfxn, xspec, pose, **kw):
+def minimize_mof_xtal(sfxn, xspec, pose, debug=False, **kw):
    kw = rp.Bunch(kw)
-   try:
-      print('''
-minimize.py score initial....................      687.825
-minimize.py: score before chem bonds.........      687.825
-minimize.py: score after chem bonds..........      166.551
-minimize.py: score after chainbreaks.........      166.551
-minimize.py: score after metal olap .........      166.551
-minimize.py: score after metal dist .........      176.766
-minimize.py: score after metal dir...........      275.546
-minimize.py: score after lig angle added.....      290.724
-minimize.py: score after min no scale........      111.465
-==========================================================
-'''.strip())
-      os.remove('before.pdb')
-      os.remove('zafter.pdb')
-   except:
-      pass
+   #    try:
+   #       print('''
+   # minimize.py score initial....................      687.825
+   # minimize.py: score before chem bonds.........      687.825
+   # minimize.py: score after chem bonds..........      166.551
+   # minimize.py: score after chainbreaks.........      166.551
+   # minimize.py: score after metal olap .........      166.551
+   # minimize.py: score after metal dist .........      176.766
+   # minimize.py: score after metal dir...........      275.546
+   # minimize.py: score after lig angle added.....      290.724
+   # minimize.py: score after min no scale........      111.465
+   # ==========================================================
+   # '''.strip())
+   #       os.remove('before.pdb')
+   #       os.remove('zafter.pdb')
+   #    except:
+   #       pass
 
    nresasym = pose.size()
    beg = 1
@@ -39,17 +39,18 @@ minimize.py: score after min no scale........      111.465
    metalligdist = 2.2
    metalaid = AtomID(1, metalresnos[0])
    sd_metal_olap = 0.01
-   sd_metal_dir = 0.5
-   sd_metal_lig_dist = 0.3
-   sd_metal_lig_ang = 1.6
-   sd_metal_coo = 0.8
+   sd_metal_dir = 0.4
+   sd_metal_lig_dist = 0.2
+   sd_metal_lig_ang = 0.4
+   sd_metal_coo = 0.5
    sd_cut_dis = 0.01
    sd_cut_ang = 0.01
    sd_cut_dih = 0.1
 
+   sfxn_orig = sfxn
    sfxn = sfxn.clone()
-   # fa_elec is useless whin the ZN is virtual -- missing charge
-   sfxn.set_weight(r.core.scoring.ScoreType.fa_elec, 0.0)
+   # fa_elec is useless whin the ZN is virtual -- missing charge?
+   # sfxn.set_weight(r.core.scoring.ScoreType.fa_elec, 0.0)
    sfxn.set_weight(r.core.scoring.ScoreType.atom_pair_constraint, 1.0)
    sfxn.set_weight(r.core.scoring.ScoreType.angle_constraint, 1.0)
    sfxn.set_weight(r.core.scoring.ScoreType.dihedral_constraint, 1.0)
@@ -64,13 +65,13 @@ minimize.py: score after min no scale........      111.465
          r.core.pose.replace_pose_residue_copying_existing_coordinates(
             pose, ir, rts.name_map(newname))
 
-   if True:
+   if False:
       tmp = pose.clone()
       r.core.pose.replace_pose_residue_copying_existing_coordinates(tmp, metalresnos[0], metalres)
       makelattice(tmp)
       tmp.dump_pdb('before.pdb')
    makelattice(pose)
-   print(f'minimize.py score initial.................... {sfxn(pose):10.3f}')
+   if debug: print(f'minimize.py score initial.................... {sfxn(pose):10.3f}')
    # print_nonzero_energies(sfxn, pose)
 
    syminfo = r.core.pose.symmetry.symmetry_info(pose)
@@ -89,8 +90,8 @@ minimize.py: score after min no scale........      111.465
       if nxyz.distance(otherc) < 2.0: cac = (isub + 1) * nresasym - 1
       if cxyz.distance(othern) < 2.0: nac = (isub + 0) * nresasym + 1
    assert nac and cac, 'backbone is weird?'
-   print('peptide connection 1:', cac, beg)
-   print('peptide_connection 2:', end, nac)
+   if debug: print('peptide connection 1:', cac, beg)
+   if debug: print('peptide_connection 2:', end, nac)
    # pose.dump_pdb('check_cuts.pdb')
    # assert 0
 
@@ -117,7 +118,11 @@ minimize.py: score after min no scale........      111.465
    pose.set_new_conformation(conf)
    pose.set_new_energies_object(r.core.scoring.symmetry.SymmetricEnergies())
    pose.pdb_info(pi)
-   print(f'minimize.py: score after chem bonds.......... {sfxn(pose):10.3f}')
+   if debug: print(f'minimize.py: score after chem bonds.......... {sfxn(pose):10.3f}')
+
+   #############################################3
+
+   cst_cut, cst_lig_dis, cst_lig_ang, cst_lig_ori = list(), list(), list(), list()
 
    ############### chainbreaks ################3
 
@@ -143,32 +148,31 @@ minimize.py: score after min no scale........      111.465
    # ]:
    #    pose.add_constraint(cst)
 
-   addcst_dis(pose, cac, 'C ', beg, 'N', f_cut_dis)
-   addcst_dis(pose, end, 'C ', nac, 'N', f_cut_dis)
-   print(f'minimize.py: score after chainbreak dis...... {sfxn(pose):10.3f}')
-   addcst_ang(pose, cac, 'CA', cac, 'C', beg, 'N ', f_cut_ang_cacn)
-   addcst_ang(pose, cac, 'C ', beg, 'N', beg, 'CA', f_cut_ang_cnca)
-   addcst_ang(pose, end, 'CA', end, 'C', nac, 'N ', f_cut_ang_cacn)
-   addcst_ang(pose, end, 'C ', nac, 'N', nac, 'CA', f_cut_ang_cnca)
-   print(f'minimize.py: score after chainbreak ang...... {sfxn(pose):10.3f}')
+   cst_cut.append(addcst_dis(pose, cac, 'C ', beg, 'N', f_cut_dis))
+   cst_cut.append(addcst_dis(pose, end, 'C ', nac, 'N', f_cut_dis))
+   if debug: print(f'minimize.py: score after chainbreak dis...... {sfxn(pose):10.3f}')
+   cst_cut.append(addcst_ang(pose, cac, 'CA', cac, 'C', beg, 'N ', f_cut_ang_cacn))
+   cst_cut.append(addcst_ang(pose, cac, 'C ', beg, 'N', beg, 'CA', f_cut_ang_cnca))
+   cst_cut.append(addcst_ang(pose, end, 'CA', end, 'C', nac, 'N ', f_cut_ang_cacn))
+   cst_cut.append(addcst_ang(pose, end, 'C ', nac, 'N', nac, 'CA', f_cut_ang_cnca))
+   if debug: print(f'minimize.py: score after chainbreak ang...... {sfxn(pose):10.3f}')
    # print(r.numeric.dihedral(
    #       pose.residue(cac).xyz('CA'),
    #       pose.residue(cac).xyz('C'),
    #       pose.residue(beg).xyz('N'),
    #       pose.residue(beg).xyz('CA'),
    #    ))
-   addcst_dih(pose, cac, 'CA', cac, 'C', beg, 'N ', beg, 'CA', f_cut_dih)
-   addcst_dih(pose, end, 'CA', end, 'C', nac, 'N ', nac, 'CA', f_cut_dih)
-   addcst_dih(pose, cac, 'O ', cac, 'C', beg, 'N ', beg, 'CA', f_cut_dihO)
-   addcst_dih(pose, end, 'O ', end, 'C', nac, 'N ', nac, 'CA', f_cut_dihO)
-   print(f'minimize.py: score after chainbreak dihedral. {sfxn(pose):10.3f}')
+   cst_cut.append(addcst_dih(pose, cac, 'CA', cac, 'C', beg, 'N ', beg, 'CA', f_cut_dih))
+   cst_cut.append(addcst_dih(pose, end, 'CA', end, 'C', nac, 'N ', nac, 'CA', f_cut_dih))
+   cst_cut.append(addcst_dih(pose, cac, 'O ', cac, 'C', beg, 'N ', beg, 'CA', f_cut_dihO))
+   cst_cut.append(addcst_dih(pose, end, 'O ', end, 'C', nac, 'N ', nac, 'CA', f_cut_dihO))
+   if debug: print(f'minimize.py: score after chainbreak dihedral. {sfxn(pose):10.3f}')
 
    ############## metal constraints ################
 
-   # metal ligand distance
    for i, j in [(i, j) for i in metalresnos for j in metalresnos if i < j]:
       addcst_dis(pose, i, metalname, j, metalname, f_metal_olap)
-   print(f'minimize.py: score after metal olap ......... {sfxn(pose):10.3f}')
+   if debug: print(f'minimize.py: score after metal olap ......... {sfxn(pose):10.3f}')
 
    allowed_elems = 'NOS'
    znpos = pose.residue(metalresnos[0]).xyz(1)
@@ -190,10 +194,11 @@ minimize.py: score after min no scale........      111.465
 
    # metal/lig distance constraints
    for i, aid in enumerate(znbonded):
-      pose.add_constraint(
-         r.core.scoring.constraints.AtomPairConstraint(metalaid, aid, f_metal_lig_dist))
+      cst = r.core.scoring.constraints.AtomPairConstraint(metalaid, aid, f_metal_lig_dist)
+      cst_lig_dis.append(cst)
+      pose.add_constraint(cst)
 
-   print(f'minimize.py: score after metal dist ......... {sfxn(pose):10.3f}')
+   if debug: print(f'minimize.py: score after metal dist ......... {sfxn(pose):10.3f}')
 
    # for aid in znbonded:
    #    print(aid.rsd(), aid.atomno(),
@@ -210,24 +215,27 @@ minimize.py: score after min no scale........      111.465
       if any(_ in res.name() for _ in 'ASP GLU'.split()):
          # metal comes off of OD1/OE1
          ir, coo = aid.rsd(), ('OD1 CG OD2' if 'ASP' in res.name() else 'OE1 CD OE2').split()
-         addcst_dih(pose, ir, coo[0], ir, coo[1], ir, coo[2], metalaid.rsd(), metalname,
-                    f_metal_coo)
+         cst_lig_ori.append(
+            addcst_dih(pose, ir, coo[0], ir, coo[1], ir, coo[2], metalaid.rsd(), metalname,
+                       f_metal_coo))
       else:
          if 'HIS' in res.name(): aname = 'HD1' if res.has('HD1') else 'HE2'
          if 'CYS' in res.name(): anmae = 'HG'
-         addcst_ang(pose, ir, res.atom_name(aid.atomno()), metalaid.rsd(), metalname, ir, aname,
-                    f_point_at_metal)
+         cst_lig_ori.append(
+            addcst_ang(pose, ir, res.atom_name(aid.atomno()), metalaid.rsd(), metalname, ir,
+                       aname, f_point_at_metal))
          # cst = r.core.scoring.constraints.AngleConstraint(aid, metalaid, aid2, f_point_at_metal)
          # pose.add_constraint(cst)
-   print(f'minimize.py: score after metal dir........... {sfxn(pose):10.3f}')
+   if debug: print(f'minimize.py: score after metal dir........... {sfxn(pose):10.3f}')
 
    for i, iaid in enumerate(znbonded):
       for j, jaid in enumerate(znbonded[:i]):
          # pripnt(i, j)
          cst = r.core.scoring.constraints.AngleConstraint(iaid, metalaid, jaid, f_metal_lig_ang)
+         cst_lig_ang.append(cst)
          pose.add_constraint(cst)
 
-   print(f'minimize.py: score after lig angle added..... {sfxn(pose):10.3f}')
+   if debug: print(f'minimize.py: score after lig angle added..... {sfxn(pose):10.3f}')
 
    ################ minimization #########################
 
@@ -237,27 +245,80 @@ minimize.py: score after min no scale........      111.465
    movemap.set_jump(False)
    for i in allowed_jumps:
       movemap.set_jump(True, i)
-   mover = r.protocols.minimization_packing.symmetry.SymMinMover(
+   minimizer = r.protocols.minimization_packing.symmetry.SymMinMover(
       movemap, sfxn, 'lbfgs_armijo_nonmonotone', 0.01, True)  # tol, nblist
+   if sfxn.has_nonzero_weight(r.core.scoring.ScoreType.cart_bonded):
+      minimizer.cartesian(True)
+   minimizer.apply(pose)
+   if debug: print(f'minimize.py: score after min no scale........ {sfxn(pose):10.3f}')
 
-   mover.apply(pose)
-   print(f'minimize.py: score after min no scale........ {sfxn(pose):10.3f}')
-
-   printscores(sfxn, pose)
+   # printscores(sfxn, pose)
 
    kw.timer.checkpoint(f'min scale 1.0')
 
    asym = r.core.pose.Pose()
    r.core.pose.symmetry.extract_asymmetric_unit(pose, asym, False)
    r.core.pose.replace_pose_residue_copying_existing_coordinates(asym, metalresnos[0], metalres)
+   # asym.dump_pdb('asym.pdb')
 
-   for ir in metalresnos:
-      r.core.pose.replace_pose_residue_copying_existing_coordinates(pose, ir, metalres)
+   # for ir in metalresnos:
+   #    r.core.pose.replace_pose_residue_copying_existing_coordinates(pose, ir, metalres)
+   # pose.dump_pdb('zafter.pdb')
 
-   pose.dump_pdb('zafter.pdb')
+   if debug: print(kw.timer)
 
-   print(kw.timer)
+   info = rp.Bunch()
+   info.score = sfxn(pose)
 
-   assert 0
+   ############### score component stuff ################
+   st = r.core.scoring.ScoreType
+   etot = pose.energies().total_energies()
+   info.score_fa_atr = (etot[st.fa_atr])
+   info.score_fa_rep = (etot[st.fa_rep])
+   info.score_fa_sol = (etot[st.fa_sol])
+   info.score_lk_ball = (etot[st.lk_ball] + etot[st.lk_ball_iso] + etot[st.lk_ball_bridge] +
+                         etot[st.lk_ball_bridge_uncpl])
+   info.score_fa_elec = (etot[st.fa_elec] + etot[st.fa_intra_elec])
+   info.score_hbond_sr_bb = (etot[st.hbond_sr_bb] + etot[st.hbond_lr_bb] + etot[st.hbond_bb_sc] +
+                             etot[st.hbond_sc])
+   info.score_dslf_fa13 = (etot[st.dslf_fa13])
+   info.score_atom_pair_constraint = (etot[st.atom_pair_constraint])
+   info.score_angle_constraint = (etot[st.angle_constraint])
+   info.score_dihedral_constraint = (etot[st.dihedral_constraint])
+   info.score_omega = (etot[st.omega])
+   info.score_rotamer = (etot[st.fa_dun] + etot[st.fa_dun_dev] + etot[st.fa_dun_rot] +
+                         etot[st.fa_dun_semi] + etot[st.fa_intra_elec] + etot[st.fa_intra_rep] +
+                         etot[st.fa_intra_atr_xover4] + etot[st.fa_intra_rep_xover4] +
+                         etot[st.fa_intra_sol_xover4])
+   info.score_ref = (etot[st.ref])
+   info.score_rama_prepro = (etot[st.rama_prepro])
+   info.score_cart_bonded = (etot[st.cart_bonded])
+   info.score_gen_bonded = (etot[st.gen_bonded])
 
-   return asym
+   ############### cst stuff ################
+   pose.remove_constraints()
+   info.score_wo_cst = sfxn(pose)
+
+   [pose.add_constraint(cst) for cst in cst_cut]
+   info.score_cst_cut = sfxn(pose) - info.score_wo_cst
+   pose.remove_constraints()
+
+   [pose.add_constraint(cst) for cst in cst_lig_dis]
+   [pose.add_constraint(cst) for cst in cst_lig_ang]
+   [pose.add_constraint(cst) for cst in cst_lig_ori]
+   info.score_cst_lig_ori = sfxn(pose) - info.score_wo_cst
+   pose.remove_constraints()
+
+   [pose.add_constraint(cst) for cst in cst_lig_dis]
+   info.score_cst_lig_dis = sfxn(pose) - info.score_wo_cst
+   pose.remove_constraints()
+
+   [pose.add_constraint(cst) for cst in cst_lig_ang]
+   info.score_cst_lig_ang = sfxn(pose) - info.score_wo_cst
+   pose.remove_constraints()
+
+   [pose.add_constraint(cst) for cst in cst_lig_ori]
+   info.score_cst_lig_ori = sfxn(pose) - info.score_wo_cst
+   pose.remove_constraints()
+
+   return asym, info

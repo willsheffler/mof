@@ -1,8 +1,8 @@
 import numpy as np, rpxdock as rp
 
 from pyrosetta import rosetta as rt
+import mof
 from mof.pyrosetta_init import lj_sfxn
-from mof import util
 
 from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec
 from pyrosetta.rosetta.numeric import xyzMatrix_double_t as xyzMat
@@ -26,10 +26,10 @@ def xtal_build(
       min_contacts,
       max_sym_score,
       debug=False,
-      **arg,
+      **kw,
 ):
-   arg = rp.Bunch(arg)
-   if not arg.timer: arg.timer = rp.Timer().start()
+   kw = rp.Bunch(kw)
+   if not kw.timer: kw.timer = rp.Timer().start()
 
    sym1 = xspec.sym1
    orig1 = xspec.orig1
@@ -116,7 +116,10 @@ def xtal_build(
    celldims = scale[:3]
    assert np.allclose(min(celldims), max(celldims), atol=0.001)
    celldim = abs(min(celldims))
-   if not (arg.min_cell_size <= celldim <= arg.max_cell_size):
+   if not (kw.min_cell_size <= celldim <= kw.max_cell_size):
+      return []
+   solv_frac = mof.filters.approx_solvent_fraction(pose, xspec, celldim)
+   if kw.max_solv_frac < solv_frac:
       return []
 
    nsym = int(peptide_sym[1])
@@ -194,7 +197,7 @@ def xtal_build(
    # # # print(0, Xalign @ rp.homog.hpoint([1, 2, 3]))
    # # rpxbody.dump_pdb('a_body_xalign.pdb')
 
-   arg.timer.checkpoint()
+   kw.timer.checkpoint()
 
    clash, tot_ncontact = False, 0
    rpxbody_pdb, ir_ic = rpxbody.str_pdb(warn_on_chain_overflow=False, use_orig_coords=False)
@@ -232,7 +235,7 @@ def xtal_build(
    if tot_ncontact < min_contacts:
       return []
 
-   arg.timer.checkpoint('clash_check')
+   kw.timer.checkpoint('clash_check')
 
    # for i, x in enumerate(symxforms):
    #    # print('sym xform %02i' % i, rp.homog.axis_ang_cen_of(x)
@@ -311,7 +314,7 @@ def xtal_build(
       if nonbonded_energy > max_sym_score:
          return []
 
-   arg.timer.checkpoint('make sympose and "nonbonded" score')
+   kw.timer.checkpoint('make sympose and "nonbonded" score')
 
    znpos = Xalign @ metal_origin
    znres = make_residue('VZN')
@@ -328,4 +331,4 @@ def xtal_build(
    # rp.util.dump_str(rpxbody_pdb, 'a_symframes.pdb')
    # assert 0
 
-   return [(Xalign, xtal_pose, rpxbody_pdb, tot_ncontact, nonbonded_energy)]
+   return [(Xalign, xtal_pose, rpxbody_pdb, tot_ncontact, nonbonded_energy, solv_frac)]

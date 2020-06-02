@@ -88,3 +88,9 @@ tmp_cache.pickle
 *.pdb*_v*.pickle
 
 .rotcloud_cache
+
+before.pdb
+zafter.pdb
+asym.pdb
+
+results/

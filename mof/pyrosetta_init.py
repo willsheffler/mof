@@ -6,24 +6,31 @@ from mof import data
 from pyrosetta.rosetta.numeric import xyzVector_double_t as rVec
 from pyrosetta.rosetta.numeric import xyzMatrix_double_t as rMat
 from pyrosetta import AtomID
-
+from pyrosetta.rosetta.core.scoring import ScoreType
 # pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta'
 pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta_cart'
 # pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta -output_virtual'
 
 pyrosetta.init(pyrosetta_flags)
 
-scoretypes = core.scoring.ScoreType
-
 chm = core.chemical.ChemicalManager.get_instance()
 rts = chm.residue_type_set('fa_standard')
 
-dun_sfxn = core.scoring.ScoreFunction()
-dun_sfxn.set_weight(core.scoring.ScoreType.fa_dun, 1.0)
+default_sfxn = core.scoring.get_score_function()
+rotamer_sfxn = core.scoring.ScoreFunction()
+for st in (
+      ScoreType.fa_dun,
+      ScoreType.fa_dun_dev,
+      ScoreType.fa_dun_rot,
+      ScoreType.fa_dun_semi,
+      ScoreType.fa_intra_elec,
+      ScoreType.fa_intra_rep,
+):
+   rotamer_sfxn.set_weight(st, default_sfxn.get_weight(st))
 
 lj_sfxn = core.scoring.ScoreFunction()
-lj_sfxn.set_weight(core.scoring.ScoreType.fa_atr, 1.0)
-lj_sfxn.set_weight(core.scoring.ScoreType.fa_rep, 0.55)
+lj_sfxn.set_weight(ScoreType.fa_atr, 1.0)
+lj_sfxn.set_weight(ScoreType.fa_rep, 0.55)
 
 makelattice = lambda x: rosetta.protocols.cryst.MakeLatticeMover().apply(x)
 
@@ -35,29 +42,31 @@ def name2aid(pose, ires, aname):
    return AtomID(pose.residue(ires).atom_index(aname.strip()), ires)
 
 def addcst_dis(pose, ires, iname, jres, jname, func):
-   pose.add_constraint(
-      rosetta.core.scoring.constraints.AtomPairConstraint(name2aid(pose, ires, iname),
-                                                          name2aid(pose, jres, jname), func))
+   cst = rosetta.core.scoring.constraints.AtomPairConstraint(name2aid(pose, ires, iname),
+                                                             name2aid(pose, jres, jname), func)
+   pose.add_constraint(cst)
+   return cst
 
 def addcst_ang(pose, ires, iname, jres, jname, kres, kname, func):
-   pose.add_constraint(
-      rosetta.core.scoring.constraints.AngleConstraint(name2aid(pose, ires, iname),
-                                                       name2aid(pose, jres, jname),
-                                                       name2aid(pose, kres, kname), func))
+   cst = rosetta.core.scoring.constraints.AngleConstraint(name2aid(pose, ires, iname),
+                                                          name2aid(pose, jres, jname),
+                                                          name2aid(pose, kres, kname), func)
+   pose.add_constraint(cst)
+   return cst
 
 def addcst_dih(pose, ires, iname, jres, jname, kres, kname, lres, lname, func):
-   pose.add_constraint(
-      rosetta.core.scoring.constraints.DihedralConstraint(name2aid(pose, ires, iname),
-                                                          name2aid(pose, jres, jname),
-                                                          name2aid(pose, kres, kname),
-                                                          name2aid(pose, lres, lname), func))
+   cst = rosetta.core.scoring.constraints.DihedralConstraint(name2aid(pose, ires, iname),
+                                                             name2aid(pose, jres, jname),
+                                                             name2aid(pose, kres, kname),
+                                                             name2aid(pose, lres, lname), func)
+   pose.add_constraint(cst)
+   return cst
 
 def get_res_energy(pose, st, ires):
    return
 
-def get_dun_energy(pose, ires):
-   dun_sfxn(pose)
-   return pose.energies().residue_total_energies(ires)[scoretypes.fa_dun]
+def get_rotamer_energy(pose, ires):
+   return rotamer_sfxn(pose)
 
 def make_residue(resn):
    if len(resn) == 1:
