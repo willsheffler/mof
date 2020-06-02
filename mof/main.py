@@ -3,13 +3,28 @@ from concurrent.futures import ProcessPoolExecutor
 
 def main():
 
-   arg = mof.options.get_cli_args()
-   arg.timer = rp.Timer().start()
-   arg.scale_number_of_rotamers = 0.5
+   kw = mof.options.get_cli_args()
+   kw.timer = rp.Timer().start()
+   kw.scale_number_of_rotamers = 0.5
+   kw.max_bb_redundancy = 0.3
+   kw.err_tolerance = 2.0
+   kw.dist_err_tolerance = 1.0
+   kw.angle_err_tolerance = 15
+   kw.min_dist_to_z_axis = 6.0
+   kw.sym_axes_angle_tolerance = 6.0
+   kw.angle_to_cart_err_ratio = 20.0
+   kw.max_dun_score = 6.0
+   kw.clash_dis = 3.3
+   kw.contact_dis = 7.0
+   kw.min_contacts = 0
+   kw.max_sym_score = 50.0
+   kw.min_cell_size = 0
+   kw.max_cell_size = 36
+   kw.sample_cell_spacing = True
 
    search_spec = mof.xtal_search.XtalSearchSpec(
-      spacegroup='p4132',
-      # spacegroup='i213',
+      # spacegroup='p4132',
+      spacegroup='i213',
       pept_orig=np.array([0, 0, 0, 1]),
       pept_axis=np.array([0, 0, 1, 0]),
       sym_of_ligand=dict(
@@ -25,88 +40,88 @@ def main():
          # HIS='C2',
       ),
       ligands=['HZ3', 'DHZ3'],
-      **arg,
+      **kw,
    )
 
-   if len(sys.argv) > 1:
-      pdb_gen = mof.util.gen_pdbs(arg.inputs)
+   if len(kw.inputs) > 0:
+      pdb_gen = mof.util.gen_pdbs(kw.inputs)
    else:
-      # test
+      fnames = ['mof/data/peptides/c.2.6_0001.pdb']
       print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
       print('!!! no pdb list input, using test "only_one" !!!')
+      print('!!!', fnames)
       print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+
       # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
       # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
-      pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c.2.6_0001.pdb'])
       # pdb_gen = mof.util.gen_pdbs(
       # ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
+      pdb_gen = mof.util.gen_pdbs(fnames)
    prepped_pdb_gen = mof.util.prep_poses(pdb_gen)
 
    results = list()
 
-   lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = get_rotclouds(**arg)
+   lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = get_rotclouds(**kw)
 
-   arg.timer.checkpoint('main')
+   kw.timer.checkpoint('main')
 
    for pose in prepped_pdb_gen:
 
       mof.util.fix_bb_h_all(pose)
       for rc1, rc2 in get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
-         # results.extend(
-         # mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
-         try:
-            results.extend(
-               mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **arg))
-         except Exception as e:
-            print('some error on', rc1.amino_acid, rc2.amino_acid)
-            print('Exception:', type(e))
-            print(repr(e))
+         # try:
+         results.extend(
+            mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
+      # except Exception as e:
+      # print('some error on', rc1.amino_acid, rc2.amino_acid)
+      # print('Exception:', type(e))
+      # print(repr(e))
 
    if not results:
 
-      print(arg.timer)
+      print(kw.timer)
       print('---- no results ----')
       return
 
-   arg.timer.checkpoint('main')
+   kw.timer.checkpoint('main')
    xforms = np.array([r.xalign for r in results])
    non_redundant = rp.filter.filter_redundancy(xforms, results[0].rpxbody, every_nth=1,
-                                               max_bb_redundancy=arg.max_bb_redundancy,
+                                               max_bb_redundancy=kw.max_bb_redundancy,
                                                max_cluster=10000)
-   arg.timer.checkpoint('filter_redundancy')
+   kw.timer.checkpoint('filter_redundancy')
 
-   os.makedirs(os.path.dirname(arg.output_prefix), exist_ok=True)
+   os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
    for i, result in enumerate(results):
       if i in non_redundant:
-         fname = arg.output_prefix + 'asym_' + result.label + '.pdb'
+         fname = kw.output_prefix + 'asym_' + result.label + '.pdb'
          print('dumping', fname)
          result.xtal_asym_pose.dump_pdb(fname)
          # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.label + '.pdb')
-   arg.timer.checkpoint('dumping pdbs')
+   kw.timer.checkpoint('dumping pdbs')
 
    print("DONE")
 
-def get_rotclouds(**arg):
-   arg = rp.Bunch(arg)
+def get_rotclouds(**kw):
+   kw = rp.Bunch(kw)
 
-   chiresl_asp1 = arg.chiresl_asp1 / arg.scale_number_of_rotamers
-   chiresl_asp2 = arg.chiresl_asp2 / arg.scale_number_of_rotamers
-   chiresl_cys1 = arg.chiresl_cys1 / arg.scale_number_of_rotamers
-   chiresl_cys2 = arg.chiresl_cys2 / arg.scale_number_of_rotamers
-   chiresl_his1 = arg.chiresl_his1 / arg.scale_number_of_rotamers
-   chiresl_his2 = arg.chiresl_his2 / arg.scale_number_of_rotamers
-   chiresl_glu1 = arg.chiresl_glu1 / arg.scale_number_of_rotamers
-   chiresl_glu2 = arg.chiresl_glu2 / arg.scale_number_of_rotamers
-   chiresl_glu3 = arg.chiresl_glu3 / arg.scale_number_of_rotamers
+   chiresl_asp1 = kw.chiresl_asp1 / kw.scale_number_of_rotamers
+   chiresl_asp2 = kw.chiresl_asp2 / kw.scale_number_of_rotamers
+   chiresl_cys1 = kw.chiresl_cys1 / kw.scale_number_of_rotamers
+   chiresl_cys2 = kw.chiresl_cys2 / kw.scale_number_of_rotamers
+   chiresl_his1 = kw.chiresl_his1 / kw.scale_number_of_rotamers
+   chiresl_his2 = kw.chiresl_his2 / kw.scale_number_of_rotamers
+   chiresl_glu1 = kw.chiresl_glu1 / kw.scale_number_of_rotamers
+   chiresl_glu2 = kw.chiresl_glu2 / kw.scale_number_of_rotamers
+   chiresl_glu3 = kw.chiresl_glu3 / kw.scale_number_of_rotamers
 
-   os.makedirs(arg.rotcloud_cache, exist_ok=True)
+   os.makedirs(kw.rotcloud_cache, exist_ok=True)
 
-   params = (arg.chiresl_his1, arg.chiresl_his2, arg.chiresl_cys1, arg.chiresl_cys2,
-             arg.chiresl_asp1, arg.chiresl_asp2, arg.chiresl_glu1, arg.chiresl_glu2,
-             arg.chiresl_glu3, arg.maxdun_cys, arg.maxdun_asp, arg.maxdun_glu, arg.maxdun_his)
+   params = (kw.chiresl_his1, kw.chiresl_his2, kw.chiresl_cys1, kw.chiresl_cys2, kw.chiresl_asp1,
+             kw.chiresl_asp2, kw.chiresl_glu1, kw.chiresl_glu2, kw.chiresl_glu3, kw.maxdun_cys,
+             kw.maxdun_asp, kw.maxdun_glu, kw.maxdun_his)
    ident = mof.util.hash_str_to_int(str(params))
 
-   cache_file = arg.rotcloud_cache + '/%i.pickle' % ident
+   cache_file = kw.rotcloud_cache + '/%i.pickle' % ident
    if os.path.exists(cache_file):
       lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = rp.util.load(cache_file)
    else:
@@ -135,7 +150,7 @@ def get_rotclouds(**arg):
 
 def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
 
-   # return [(dC, lD)]
+   return [(dD, lJ)]
 
    return [
       # (dC, dC),

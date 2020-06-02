@@ -189,7 +189,7 @@ def center_pose(pose):
       crds.append(np.array(pose.residue(i).xyz('CA')))
    crds = np.stack(crds)
    tocen = -np.mean(crds, axis=0)
-   print(tocen)
+   # print(tocen)
    Rx = rosetta.numeric.xyzMatrix_double_t.cols(1, 0, 0, 0, 1, 0, 0, 0, 1)
    v = rosetta.numeric.xyzVector_double_t(tocen[0], tocen[1], tocen[2])
    pose.apply_transform_Rx_plus_v(Rx, v)

@@ -19,6 +19,14 @@
          "name": "tmp.py",
          "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python tmp.py &> sublime_build.log"
       },
+      {
+         "name": "main.py",
+         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py --scale_number_of_rotamers 0.5 &> sublime_build.log"
+      },
+      {
+         "name": "main.py pymol",
+         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py --scale_number_of_rotamers 0.5 &> sublime_build.log; if ls *.pdb; then pymol *.pdb; fi"
+      },
    ],
    "folders":
    [

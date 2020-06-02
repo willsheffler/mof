@@ -62,7 +62,8 @@ def xtal_build(
       # axis1 = np.array([0.57735, 0.57735, 0.57735, 0])
       # assert 0, 'maybe ok, check this new branch'
    else:
-      print('both sym elements not at origin')
+      # print('both sym elements not at origin')
+      pass
       # raise NotImplementedError('both sym elements not at origin')
 
    if sym1 == peptide_sym:
@@ -313,11 +314,17 @@ def xtal_build(
    arg.timer.checkpoint('make sympose and "nonbonded" score')
 
    znpos = Xalign @ metal_origin
-   znres = make_residue('ZN')
+   znres = make_residue('VZN')
    xtal_pose.append_residue_by_jump(znres, 1)
-   xtal_pose.set_xyz(AtomID(1, len(xtal_pose.residues)), xyzVec(*znpos[:3]))
-
+   znresi = len(xtal_pose.residues)
+   znpos = xyzVec(*znpos[:3])
+   zndelta = znpos - xtal_pose.residue(znresi).xyz(1)
+   for ia in range(1, xtal_pose.residue(znresi).natoms() + 1):
+      newxyz = zndelta + xtal_pose.residue(znresi).xyz(ia)
+      # print(xtal_pose.residue(znresi).name(), ia, xtal_pose.residue(znresi).atom_name(ia), newxyz)
+      xtal_pose.set_xyz(AtomID(ia, znresi), newxyz)
    # xtal_pose.dump_pdb('a_xtal_pose.pdb')
+   # assert 0
    # rp.util.dump_str(rpxbody_pdb, 'a_symframes.pdb')
    # assert 0
 

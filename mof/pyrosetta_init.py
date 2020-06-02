@@ -7,7 +7,9 @@ from pyrosetta.rosetta.numeric import xyzVector_double_t as rVec
 from pyrosetta.rosetta.numeric import xyzMatrix_double_t as rMat
 from pyrosetta import AtomID
 
-pyrosetta_flags = f'-mute all -extra_res_fa {data.HZ3_params} {data.HZ4_params} {data.HZD_params} -preserve_crystinfo'
+# pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta'
+pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta_cart'
+# pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta -output_virtual'
 
 pyrosetta.init(pyrosetta_flags)
 
@@ -22,6 +24,33 @@ dun_sfxn.set_weight(core.scoring.ScoreType.fa_dun, 1.0)
 lj_sfxn = core.scoring.ScoreFunction()
 lj_sfxn.set_weight(core.scoring.ScoreType.fa_atr, 1.0)
 lj_sfxn.set_weight(core.scoring.ScoreType.fa_rep, 0.55)
+
+makelattice = lambda x: rosetta.protocols.cryst.MakeLatticeMover().apply(x)
+
+def printscores(sfxn, pose):
+   for st in sfxn.get_nonzero_weighted_scoretypes():
+      print(str(st)[10:], pose.energies().total_energies()[st])
+
+def name2aid(pose, ires, aname):
+   return AtomID(pose.residue(ires).atom_index(aname.strip()), ires)
+
+def addcst_dis(pose, ires, iname, jres, jname, func):
+   pose.add_constraint(
+      rosetta.core.scoring.constraints.AtomPairConstraint(name2aid(pose, ires, iname),
+                                                          name2aid(pose, jres, jname), func))
+
+def addcst_ang(pose, ires, iname, jres, jname, kres, kname, func):
+   pose.add_constraint(
+      rosetta.core.scoring.constraints.AngleConstraint(name2aid(pose, ires, iname),
+                                                       name2aid(pose, jres, jname),
+                                                       name2aid(pose, kres, kname), func))
+
+def addcst_dih(pose, ires, iname, jres, jname, kres, kname, lres, lname, func):
+   pose.add_constraint(
+      rosetta.core.scoring.constraints.DihedralConstraint(name2aid(pose, ires, iname),
+                                                          name2aid(pose, jres, jname),
+                                                          name2aid(pose, kres, kname),
+                                                          name2aid(pose, lres, lname), func))
 
 def get_res_energy(pose, st, ires):
    return
