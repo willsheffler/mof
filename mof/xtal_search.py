@@ -240,7 +240,12 @@ def xtal_search_two_residues(
                   sfxn = rosetta.core.scoring.get_score_function()
                   xtal_pose_min, mininfo = mof.minimize.minimize_mof_xtal(
                      sfxn, xspec, xtal_pose, **kw)
-                  if not xtal_pose_min: continue
+                  if not xtal_pose_min:
+                     continue
+                  if kw.max_score_minimized < mininfo.score:
+                     continue
+                     print('    Fail on minimzied score')
+                     continue
                   celldim = xtal_pose.pdb_info().crystinfo().A()
                   label = f"{pdb_name}_{xspec.spacegroup.replace(' ','_')}_{tag}_cell{int(celldim):03}_ncontact{ncontact:02}_score{int(enonbonded):03}"
 
@@ -250,6 +255,9 @@ def xtal_search_two_residues(
                      ncontact=ncontact,
                      enonbonded=enonbonded,
                      sequence=','.join(r.name() for r in xtal_pose.residues),
+                     solv_frac=solv_frac,
+                     celldim=celldim,
+                     spacegroup=xspec.spacegroup,
                   )
                   results.append(
                      rp.Bunch(
@@ -263,9 +271,9 @@ def xtal_search_two_residues(
                kw.timer.checkpoint('build_result')
 
                ### debug crap
-               if xtal_poses:
+               if results:
                   print(
-                     "HIT",
+                     "    HIT",
                      rotcloud1.amino_acid,
                      rotcloud2.amino_acid,
                      ires1,
@@ -429,8 +437,6 @@ def xtal_search_single_residue(search_spec, pose, **kw):
 
             pose_num += 1
       # print(pdb_name, 'res', ires, 'bad rots:', bad_rots)
-      else:
-         continue
 
    return results
 

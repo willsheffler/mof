@@ -1,89 +1,111 @@
-import sys, numpy as np, rpxdock as rp, os, pickle, mof, xarray as xr
-from concurrent.futures import ProcessPoolExecutor
+import sys, numpy as np, rpxdock as rp, os, pickle, mof, xarray as xr, glob
+from mof.pyrosetta_init import rosetta
+# from concurrent.futures import ProcessPoolExecutor
+from hashlib import sha1
+
+def _gen_pdbs(pdblist, seenit=[]):
+   for path in pdblist:
+      path = os.path.abspath(path)
+      if path not in seenit:
+         yield path, rosetta.core.import_pose.pose_from_file(path)
+      else:
+         print(f"{f'=== ALREADY COMPLETE: {path} ===':=^80} ")
 
 def main():
 
    kw = mof.options.get_cli_args()
    kw.timer = rp.Timer().start()
-   kw.scale_number_of_rotamers = 0.5
-   kw.max_bb_redundancy = 0.0  # 0.3
-   kw.err_tolerance = 2.0
-   kw.dist_err_tolerance = 1.0
-   kw.angle_err_tolerance = 15
-   kw.min_dist_to_z_axis = 6.0
-   kw.sym_axes_angle_tolerance = 6.0
-   kw.angle_to_cart_err_ratio = 20.0
-   kw.max_dun_score = 6.0
-   kw.clash_dis = 3.3
-   kw.contact_dis = 7.0
-   kw.min_contacts = 0
-   kw.max_sym_score = 50.0
-   kw.min_cell_size = 0
-   kw.max_cell_size = 36
-   kw.sample_cell_spacing = True
-   kw.max_solv_frac = 0.8
-   kw.debug = True
+
+   if len(kw.inputs) is 0:
+      kw.inputs = ['mof/data/peptides/c.2.6_0001.pdb']
+      print(f'{"":!^80}')
+      print(f'{"no pdb list input, using test only_one":!^80}')
+      print(f'{str(kw.inputs):!^80}')
+      print(f'{"":!^80}')
+
+      # kw.spacegroup = 'i213'
+      kw.spacegroup = 'p4132'
+      # kw.spacegroup = 'p4332'
+      kw.scale_number_of_rotamers = 0.5
+      kw.max_bb_redundancy = 0.0  # 0.3
+      kw.err_tolerance = 2.0
+      kw.dist_err_tolerance = 1.0
+      kw.angle_err_tolerance = 15
+      kw.min_dist_to_z_axis = 6.0
+      kw.sym_axes_angle_tolerance = 6.0
+      kw.angle_to_cart_err_ratio = 20.0
+      kw.max_dun_score = 6.0
+      kw.clash_dis = 3.3
+      kw.contact_dis = 7.0
+      kw.min_contacts = 0
+      kw.max_sym_score = 50.0
+      kw.max_score_minimized = 50.0
+      kw.min_cell_size = 0
+      kw.max_cell_size = 50
+      kw.max_solv_frac = 0.8
+      kw.debug = True
+      kw.continue_from_checkpoints = True
+
+      # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
+      # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
+      # pdb_gen = _gen_pdbs(
+      # ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
 
    search_spec = mof.xtal_search.XtalSearchSpec(
-      spacegroup='p4132',
-      # spacegroup='i213',
       pept_orig=np.array([0, 0, 0, 1]),
       pept_axis=np.array([0, 0, 1, 0]),
-      sym_of_ligand=dict(
-         HZ3='C3',
-         DHZ3='C3',
-         HZ4='C4',
-         DHZ4='C4',
-         HZD='D2',
-         DHZD='D2',
-         # ASP='C2',
-         # CYS='C2',
-         # GLU='C2',
-         # HIS='C2',
-      ),
+      # are these necessary:
+      sym_of_ligand=dict(HZ3='C3', DHZ3='C3', HZ4='C4', DHZ4='C4', HZD='D2', DHZD='D2'),
       ligands=['HZ3', 'DHZ3'],
       **kw,
    )
+   rotclouds = get_rotclouds(**kw)
 
-   if len(kw.inputs) > 0:
-      pdb_gen = mof.util.gen_pdbs(kw.inputs)
-   else:
-      fnames = ['mof/data/peptides/c.2.6_0001.pdb']
-      print(f'{"":!^80}')
-      print(f'{"no pdb list input, using test only_one":!^80}')
-      print(f'{str(fnames):!^80}')
-      print(f'{"":!^80}')
+   # parameters not to be considered as unique for checkpointing
+   tohash = kw.sub(
+      timer=None,
+      continue_from_checkpoints=None,
+      debug=None,
+      rotcloud_pairs=str([(a.amino_acid, b.amino_acid) for a, b in get_jobs(**rotclouds)]),
+   )
 
-      # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
-      # pdb_gen = mof.util.gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
-      # pdb_gen = mof.util.gen_pdbs(
-      # ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
-      pdb_gen = mof.util.gen_pdbs(fnames)
+   kwhash = str(mof.util.hash_str_to_int(str(tohash)))
+   checkpoint_file = f'{kw.output_prefix}_checkpoints_{kwhash}/pid{os.getpid()}.checkpoint'
+   os.makedirs(os.path.dirname(checkpoint_file), exist_ok=True)
+
+   seenit, totalseen = set(), 0
+   if kw.continue_from_checkpoints:
+      for chk in glob.glob(f'{os.path.dirname(checkpoint_file)}/*.checkpoint'):
+         with open(chk) as inp:
+            pdbs_seen = [line.strip() for line in inp]
+            seenit.update(pdbs_seen)
+            totalseen = totalseen + 1
+      if totalseen != len(seenit):
+         print(f'WARNING: unique pdbs run: {len(seenit)}, total run: {totalseen}')
+   pdb_gen = _gen_pdbs(kw.inputs, seenit)
    prepped_pdb_gen = mof.util.prep_poses(pdb_gen)
 
    results = list()
-
-   lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = get_rotclouds(**kw)
-
    kw.timer.checkpoint('main')
-
-   try:
-      for pose in prepped_pdb_gen:
-         mof.util.fix_bb_h_all(pose)
-         for rc1, rc2 in get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
-            # try:
-            results.extend(
-               mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
-      success = True
+   success = True
+   for pdbpath, pose in prepped_pdb_gen:
+      print('=' * 80)
+      print(f"{f'=== PDB: {pdbpath} ==='}:=^80")
+      print('=' * 80)
+      mof.util.fix_bb_h_all(pose)
+      for rc1, rc2 in get_jobs(**rotclouds):
+         # try:
+         results.extend(
+            mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
       # except Exception as e:
-      # print('some error on', rc1.amino_acid, rc2.amino_acid)
-      # print('Exception:', type(e))
-      # print(repr(e))
-   except Exception as e:
-      print(f'{"SOME EXCEPTION IN RUN":=^80}')
-      print(e)
-      print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
-      success = False
+      #    print(f'{"SOME EXCEPTION IN RUN":=^80}')
+      #    print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
+      #    print(type(e))
+      #    print(repr(e))
+      #    print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
+      #    success = False
+      with open(checkpoint_file, 'a') as out:
+         out.write(f'{pdbpath}\n')
 
    if not results:
       print(kw.timer)
@@ -173,17 +195,19 @@ def get_rotclouds(**kw):
 
       rp.util.dump([lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ], cache_file)
 
-   return lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ
+   return dict(lC=lC, lD=lD, lE=lE, lH=lH, lJ=lJ, dC=dC, dD=dD, dE=dE, dH=dH, dJ=dJ)
 
 def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
 
-   return [(dD, lJ)]
+   # return [(dD, lJ)]  # I 21 3
+   return [(lE, dJ)]  # P 41 3 2
+   # return [(lE, dJ)]  # P 43 3 2
 
    return [
-      # (dC, dC),
-      # (dC, lC),
-      # (lC, dC),
-      # (lC, lC),
+      (dC, dC),  # 
+      (dC, lC),  # 
+      (lC, dC),  # 
+      (lC, lC),  # 
       (dC, dD),
       (dC, lD),
       (lC, dD),
@@ -200,14 +224,14 @@ def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
       (dC, lJ),
       (lC, dJ),
       (lC, lJ),
-      # (dD, dD),
-      # (dD, lD),
-      # (lD, dD),
-      # (lD, lD),
-      # (dD, dE),
-      # (dD, lE),
-      # (lD, dE),
-      # (lD, lE),
+      (dD, dD),  # 
+      (dD, lD),  # 
+      (lD, dD),  # 
+      (lD, lD),  # 
+      (dD, dE),  # 
+      (dD, lE),  # 
+      (lD, dE),  # 
+      (lD, lE),  # 
       (dD, dH),
       (dD, lH),
       (lD, dH),
@@ -216,10 +240,10 @@ def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
       (dD, lJ),
       (lD, dJ),
       (lD, lJ),
-      # (dE, dE),
-      # (dE, lE),
-      # (lE, dE),
-      # (lE, lE),
+      (dE, dE),  # 
+      (dE, lE),  # 
+      (lE, dE),  # 
+      (lE, lE),  # 
       (dE, dH),
       (dE, lH),
       (lE, dH),
@@ -228,18 +252,18 @@ def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
       (dE, lJ),
       (lE, dJ),
       (lE, lJ),
-      # (dH, dH),
-      # (dH, lH),
-      # (lH, dH),
-      # (lH, lH),
-      # (dH, dJ),
-      # (dH, lJ),
-      # (lH, dJ),
-      # (lH, lJ),
-      # (dJ, dJ),
-      # (dJ, lJ),
-      # (lJ, dJ),
-      # (lJ, lJ),
+      (dH, dH),  # 
+      (dH, lH),  # 
+      (lH, dH),  # 
+      (lH, lH),  # 
+      (dH, dJ),  # 
+      (dH, lJ),  # 
+      (lH, dJ),  # 
+      (lH, lJ),  # 
+      (dJ, dJ),  # 
+      (dJ, lJ),  # 
+      (lJ, dJ),  # 
+      (lJ, lJ),  # 
    ]
 
 if __name__ == '__main__':

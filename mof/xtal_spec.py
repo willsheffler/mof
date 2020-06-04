@@ -40,6 +40,7 @@ class XtalSpecCC(XtalSpec):
 _frames_files = {
    'I 21 3': data_dir + '/i213_redundant111_n16_maxrad2.pickle',
    'P 41 3 2': data_dir + '/p4132_trionly_n12_maxrad3.pickle',
+   'P 43 3 2': data_dir + '/p4132_trionly_n12_maxrad3.pickle',
 }
 
 def get_xtal_spec(name):

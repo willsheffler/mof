@@ -81,15 +81,6 @@ def show_body_isect(body, Xalign, maxdis=3.0):
 #
 #    return ds
 
-### defs ###
-def gen_pdbs(pdblist):
-   for path in pdblist:
-      yield rosetta.core.import_pose.pose_from_file(path)
-
-   #    raw_pose = rosetta.core.import_pose.pose_from_file(path)
-   #    raw_pose_list.append(raw_pose)
-   # return raw_pose_list
-
 def variant_remove(pose):
    # Takes in a pose, if there are any variant types on it, it gets rid of it
    # This makes it so that the atom number dependent functions later on don't get
@@ -140,7 +131,7 @@ def prep_poses(pose_gen):
    prepped_pdbs = []
    mut_d = rosetta.protocols.simple_moves.MutateResidue()
    mut_l = rosetta.protocols.simple_moves.MutateResidue()
-   for pose in pose_gen:
+   for path, pose in pose_gen:
       mut_d.set_selector(checkable_res_pos)
       mut_d.set_res_name('DALA')
       mut_d.apply(pose)
@@ -148,7 +139,7 @@ def prep_poses(pose_gen):
       mut_l.set_res_name('ALA')
       mut_l.apply(pose)
       center_pose(pose)
-      yield pose
+      yield path, pose
    #    prepped_pdbs.append(pose)
    # return prepped_pdbs
 

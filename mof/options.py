@@ -4,6 +4,7 @@ def default_cli_parser(parent=None, **kw):
    parser = parent if parent else argparse.ArgumentParser(allow_abbrev=False)
    addarg = rp.app.options.add_argument_unless_exists(parser)
    addarg("inputs", nargs="*", type=str, default=[], help='input structures')
+   addarg('--spacegroup', type=str, default='', help='')
    addarg('--max_bb_redundancy', type=float, default=1.0, help='')
    addarg('--err_tolerance', type=float, default=1.5, help='')
    addarg('--dist_err_tolerance', type=float, default=1.0, help='')
@@ -16,8 +17,10 @@ def default_cli_parser(parent=None, **kw):
    addarg('--contact_dis', type=float, default=7.0, help='')
    addarg('--min_contacts', type=float, default=30, help='')
    addarg('--max_sym_score', type=float, default=30.0, help='')
+   addarg('--max_score_minimized', type=float, default=30.0, help='')
    addarg('--min_cell_size', type=float, default=0, help='')
    addarg('--max_cell_size', type=float, default=45, help='')
+   addarg('--max_solv_frac', type=float, default=0.8, help='')
    addarg('--rotcloud_cache', type=str, default='.rotcloud_cache', help='')
    addarg('--chiresl_his1', type=float, default=3.0, help='')
    addarg('--chiresl_his2', type=float, default=8.0, help='')
@@ -36,6 +39,10 @@ def default_cli_parser(parent=None, **kw):
           help='modify resolution of rotamers')
    addarg('--output_prefix', type=str, default='results/mofdock_')
    addarg('--max_2res_score', type=float, default=10.0)
+   addarg("--debug", action="store_true", default=False, help='')
+   addarg("--overwrite", action="store_true", default=False, help='')
+   addarg("--continue_from_checkpoints", action="store_true", default=False, help='')
+
    parser.has_mof_args = True
    return parser
 

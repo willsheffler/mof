@@ -172,7 +172,8 @@ def minimize_mof_xtal(sfxn, xspec, pose, debug=False, **kw):
 
    for i, j in [(i, j) for i in metalresnos for j in metalresnos if i < j]:
       addcst_dis(pose, i, metalname, j, metalname, f_metal_olap)
-   if debug: print(f'minimize.py: score after metal olap ......... {sfxn(pose):10.3f}')
+   if debug:
+      print(f'minimize.py: score after metal olap ......... {sfxn(pose):10.3f}')
 
    allowed_elems = 'NOS'
    znpos = pose.residue(metalresnos[0]).xyz(1)
@@ -187,10 +188,16 @@ def minimize_mof_xtal(sfxn, xspec, pose, debug=False, **kw):
             xyz = pose.xyz(aid)
             dist = xyz.distance(znpos)
             if dist < 3.5:
+               if res.atom_name(ia) in (' OD2', ' OE2'):  # other COO O sometimes closeish
+                  continue
                znbonded.append(aid)
    if len(znbonded) != metalnbonds:
       print('WRONG NO OF LIGANDING ATOMS', len(znbonded))
-      return None
+      for aid in znbonded:
+         print(pose.residue(aid.rsd()).name(), pose.residue(aid.rsd()).atom_name(aid.atomno()))
+         pose.dump_pdb('WRONG_NO_OF_LIGANDING_ATOMS.pdb')
+         return None, None
+      # raise ValueError(f'WRONG NO OF LIGANDING ATOMS {len(znbonded)}')
 
    # metal/lig distance constraints
    for i, aid in enumerate(znbonded):
@@ -220,7 +227,7 @@ def minimize_mof_xtal(sfxn, xspec, pose, debug=False, **kw):
                        f_metal_coo))
       else:
          if 'HIS' in res.name(): aname = 'HD1' if res.has('HD1') else 'HE2'
-         if 'CYS' in res.name(): anmae = 'HG'
+         if 'CYS' in res.name(): aname = 'HG'
          cst_lig_ori.append(
             addcst_ang(pose, ir, res.atom_name(aid.atomno()), metalaid.rsd(), metalname, ir,
                        aname, f_point_at_metal))

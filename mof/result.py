@@ -17,6 +17,9 @@ import xarray as xr, numpy as np, rpxdock as rp
 
 def xrdims(k):
    if k == 'xalign': return ['result', 'hrow', 'hcol']
+
+   add bbcoords, use resn# as dimname
+
    return ['result']
 
 def results_to_xarray(results):

@@ -1,16 +1,18 @@
 from mof.pyrosetta_init import rosetta as r
 aavol = dict(
-   A=180 * 1.333,
-   D=110 * 1.333,
-   C=110 * 1.333,
-   E=150 * 1.333,
-   H=150 * 1.333,
+   A=180 * 2.333,
+   D=110 * 2.333,
+   C=110 * 2.333,
+   E=150 * 2.333,
+   H=150 * 2.333,
    Z=0,
 )
 
 def approx_solvent_fraction(pose, xspec, celldim=None):
+   # print('celldim', celldim)
    seq = pose.sequence()
    if r.core.pose.symmetry.is_symmetric(pose):
+      # print('nasym', nsym)
       nasym = r.core.pose.symmetry.symm_info(pose).get_nres_subunit()
       seq = seq[:nasym]
    vol = xspec.nsubs * sum(aavol[_] for _ in seq)
@@ -20,4 +22,10 @@ def approx_solvent_fraction(pose, xspec, celldim=None):
    # vol += xspec.nsubs * aavol[pose.residue(ir).name()]
    celldim = celldim if celldim else pose.pdb_info().crystinfo().A()
    cellvol = celldim**3
-   return max(0, 1.0 - vol / cellvol)
+
+   # print(pose.pdb_info().crystinfo().A())
+   # print(seq, vol, celldim, cellvol)
+   # assert 0
+   solvfrac = max(0, 1.0 - vol / cellvol)
+
+   return solvfrac

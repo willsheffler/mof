@@ -91,6 +91,7 @@ def xtal_build(
    # print('sym2', sym2, orig2, axis2, ax2)
 
    #
+   # print('== xtal_build ==')
 
    # Xalign, _ = rp.homog.align_lines_isect_axis2(pt1, ax1, pt2, ax2, axis1, orig1, axis2, orig2)
    Xalign, scale = rp.homog.scale_translate_lines_isect_lines(pt1, ax1, pt2, ax2, orig1, axis1,
@@ -117,15 +118,18 @@ def xtal_build(
    assert np.allclose(min(celldims), max(celldims), atol=0.001)
    celldim = abs(min(celldims))
    if not (kw.min_cell_size <= celldim <= kw.max_cell_size):
-      return []
-   solv_frac = mof.filters.approx_solvent_fraction(pose, xspec, celldim)
-   if kw.max_solv_frac < solv_frac:
+      print('    Fail on cell_size', celldim)
       return []
 
    nsym = int(peptide_sym[1])
    assert pose.size() % nsym == 0
    nres_asym = pose.size() // nsym
    xtal_pose = rt.protocols.grafting.return_region(pose, 1, nres_asym)
+
+   solv_frac = mof.filters.approx_solvent_fraction(xtal_pose, xspec, celldim)
+   if kw.max_solv_frac < solv_frac:
+      print('    Fail on solv_frac')
+      return []
 
    # rt.numeric.xyzVec(hz[0], hz[1], hz[2]))
 
@@ -141,7 +145,8 @@ def xtal_build(
    # print('--------------')
 
    if xspec.frames is None:
-      assert 0
+      # raise NotImplementedError('no sym frames for', xspec.spacegroup)
+      print(f'{f" generate sym frames for {spec.spacegroup} ":}')
       dummy_scale = 100.0
       if sym1 == peptide_sym:
          redundant_point = rp.homog.hpoint(dummy_scale * orig1[:3] + 10 * axis1[:3])
@@ -156,9 +161,13 @@ def xtal_build(
       g1 = rp.homog.hrot(axis1, (2 * np.pi / nfold1) * np.arange(nfold1), dummy_scale * orig1[:3])
       g2 = rp.homog.hrot(axis2, (2 * np.pi / nfold2) * np.arange(nfold2), dummy_scale * orig2[:3])
       g = np.concatenate([g1, g2])
-      symxforms = list(
-         rp.homog.expand_xforms(g, redundant_point=redundant_point, N=12,
-                                maxrad=3.0 * dummy_scale))
+      symxforms = list()
+      count = 0
+      for x in rp.homog.expand_xforms(g, redundant_point=redundant_point, N=12,
+                                      maxrad=3.0 * dummy_scale):
+         symxforms.append(x)
+         print(count)
+         count += 1
       # rp.dump(list(symxforms), 'i213_redundant111_n16_maxrad2.pickle')
       # symxforms = rp.load('i213_redundant111_n16_maxrad2_ORIG.pickle')
       print('num symframes', len(symxforms), type(symxforms[0]))
@@ -217,6 +226,7 @@ def xtal_build(
       if np.any(rpxbody.intersect(rpxbody,
                                   np.stack(prev) @ Xalign, x @ Xalign, mindis=clash_dis)):
          clash = True
+         print('    Fail on xtal clash')
          return []
 
       ncontact = rpxbody.contact_count(body_xalign, maxdis=contact_dis)
@@ -233,6 +243,7 @@ def xtal_build(
       #    assert 0
 
    if tot_ncontact < min_contacts:
+      print('    Fail on ncontact')
       return []
 
    kw.timer.checkpoint('clash_check')
@@ -312,6 +323,7 @@ def xtal_build(
 
       # print('nonbonded_energy', nonbonded_energy)
       if nonbonded_energy > max_sym_score:
+         print('    Fail on nonbonded_energy')
          return []
 
    kw.timer.checkpoint('make sympose and "nonbonded" score')
