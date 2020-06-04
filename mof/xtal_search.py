@@ -258,7 +258,16 @@ def xtal_search_two_residues(
                      solv_frac=solv_frac,
                      celldim=celldim,
                      spacegroup=xspec.spacegroup,
+                     nsubunits=xspec.nsubs,
+                     nres=xtal_pose_min.size() - 1,
                   )
+                  bbcoords = np.array(
+                     [(v[0], v[1], v[2]) for v in [[r.xyz(n)
+                                                    for n in ('N', 'CA', 'C')]
+                                                   for r in xtal_pose_min.residues[:-1]]])
+                  bbpad = np.zeros(shape=(kw.max_pept_size - xtal_pose_min.size() + 1, 3, 3))
+                  info['bbcoords'] = np.concatenate([bbcoords, bbpad])
+
                   results.append(
                      rp.Bunch(
                         xspec=xspec,
@@ -267,35 +276,34 @@ def xtal_search_two_residues(
                         asym_pose_min=xtal_pose_min,
                         info=info,
                      ))
+                  ### debug crap
+                  if results:
+                     print(
+                        "  HIT",
+                        rotcloud1.amino_acid,
+                        rotcloud2.amino_acid,
+                        ires1,
+                        ires2,
+                        np.round(np.degrees(matchsymang), 3),
+                        hit,
+                        # rotcloud1.rotchi[hit[0]],
+                        # rotcloud2.rotchi[hit[1]],
+                        # sc_2res,
+                        np.round(dist[tuple(hit)], 3),
+                        np.round(ang_delta[tuple(hit)], 3),
+                        np.round(sc_2res - sc_2res_orig, 3),
+                     )
+                  # rotcloud1.dump_pdb(fn + '_a.pdb', stub1, which=hit[0])
+                  # rotcloud2.dump_pdb(fn + '_b.pdb', stub2, which=hit[1])
+                  # rpxbody2.dump_pdb(fn + '_sym.pdb')
+                  # metalaxispos = metal_pos[:3] + metal_axis[:3] + metal_axis[:3] + metal_axis[:3]
+                  # pose2mut.dump_pdb(tag + '_before.pdb')
+                  # hokey_position_atoms(pose2mut, ires1, ires2, metal_pos, metalaxispos)
+                  # pose2mut.dump_pdb(tag + '_after.pdb')
+                  # assert 0
+                  ### end debug crap
 
                kw.timer.checkpoint('build_result')
-
-               ### debug crap
-               if results:
-                  print(
-                     "    HIT",
-                     rotcloud1.amino_acid,
-                     rotcloud2.amino_acid,
-                     ires1,
-                     ires2,
-                     np.round(np.degrees(matchsymang), 3),
-                     hit,
-                     # rotcloud1.rotchi[hit[0]],
-                     # rotcloud2.rotchi[hit[1]],
-                     # sc_2res,
-                     np.round(dist[tuple(hit)], 3),
-                     np.round(ang_delta[tuple(hit)], 3),
-                     np.round(sc_2res - sc_2res_orig, 3),
-                  )
-               # rotcloud1.dump_pdb(fn + '_a.pdb', stub1, which=hit[0])
-               # rotcloud2.dump_pdb(fn + '_b.pdb', stub2, which=hit[1])
-               # rpxbody2.dump_pdb(fn + '_sym.pdb')
-               # metalaxispos = metal_pos[:3] + metal_axis[:3] + metal_axis[:3] + metal_axis[:3]
-               # pose2mut.dump_pdb(tag + '_before.pdb')
-               # hokey_position_atoms(pose2mut, ires1, ires2, metal_pos, metalaxispos)
-               # pose2mut.dump_pdb(tag + '_after.pdb')
-               # assert 0
-               ### end debug crap
 
    kw.timer.checkpoint('xtal_search')
 

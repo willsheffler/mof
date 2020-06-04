@@ -24,8 +24,8 @@ def main():
       print(f'{"":!^80}')
 
       # kw.spacegroup = 'i213'
-      kw.spacegroup = 'p4132'
-      # kw.spacegroup = 'p4332'
+      # kw.spacegroup = 'p4132'
+      kw.spacegroup = 'p4332'
       kw.scale_number_of_rotamers = 0.5
       kw.max_bb_redundancy = 0.0  # 0.3
       kw.err_tolerance = 2.0
@@ -44,7 +44,7 @@ def main():
       kw.max_cell_size = 50
       kw.max_solv_frac = 0.8
       kw.debug = True
-      kw.continue_from_checkpoints = True
+      # kw.continue_from_checkpoints = True
 
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
@@ -199,8 +199,8 @@ def get_rotclouds(**kw):
 
 def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
 
-   # return [(dD, lJ)]  # I 21 3
-   return [(lE, dJ)]  # P 41 3 2
+   return [(lE, dJ)]  # I 21 3
+   # return [(lE, dJ)]  # P 41 3 2
    # return [(lE, dJ)]  # P 43 3 2
 
    return [

@@ -15,15 +15,13 @@ import xarray as xr, numpy as np, rpxdock as rp
 #    def __init__(self, results):
 #       self.results = results
 
-def xrdims(k):
+def xrdims(results, k):
    if k == 'xalign': return ['result', 'hrow', 'hcol']
-
-   add bbcoords, use resn# as dimname
-
+   if k == 'bbcoords': return ['result', 'resi', 'ncac', 'xyz']
    return ['result']
 
 def results_to_xarray(results):
-   fields = {k: (xrdims(k), [r.info[k] for r in results]) for k in results[0].info}
+   fields = {k: (xrdims(results, k), [r.info[k] for r in results]) for k in results[0].info}
    fields['iresult'] = ['result'], np.arange(len(results))
    attrs = {k: [r[k] for r in results] for k in results[0] if k is not 'info'}
    ds = xr.Dataset(fields, attrs=attrs)

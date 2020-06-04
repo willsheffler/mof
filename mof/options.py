@@ -13,6 +13,7 @@ def default_cli_parser(parent=None, **kw):
    addarg('--sym_axes_angle_tolerance', type=float, default=5.0, help='')
    addarg('--angle_to_cart_err_ratio', type=float, default=20.0, help='')
    addarg('--max_dun_score', type=float, default=4.0, help='')
+   addarg('--max_pept_size', type=int, default=10, help='')
    addarg('--clash_dis', type=float, default=3.5, help='')
    addarg('--contact_dis', type=float, default=7.0, help='')
    addarg('--min_contacts', type=float, default=30, help='')
