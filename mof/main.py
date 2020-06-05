@@ -9,7 +9,7 @@ def _gen_pdbs(pdblist, seenit=[]):
       if path not in seenit:
          yield path, rosetta.core.import_pose.pose_from_file(path)
       else:
-         print(f"{f'=== ALREADY COMPLETE: {path} ===':=^80} ")
+         print(f"\n{f'!!! ALREADY COMPLETE: {path} !!!':!^80}\n")
 
 def main():
 
@@ -23,9 +23,7 @@ def main():
       print(f'{str(kw.inputs):!^80}')
       print(f'{"":!^80}')
 
-      # kw.spacegroup = 'i213'
-      # kw.spacegroup = 'p4132'
-      kw.spacegroup = 'p4332'
+      kw.spacegroups = ['i213', 'p4132', 'p4332']
       kw.scale_number_of_rotamers = 0.5
       kw.max_bb_redundancy = 0.0  # 0.3
       kw.err_tolerance = 2.0
@@ -38,7 +36,6 @@ def main():
       kw.clash_dis = 3.3
       kw.contact_dis = 7.0
       kw.min_contacts = 0
-      kw.max_sym_score = 50.0
       kw.max_score_minimized = 50.0
       kw.min_cell_size = 0
       kw.max_cell_size = 50
@@ -51,22 +48,25 @@ def main():
       # pdb_gen = _gen_pdbs(
       # ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
 
-   search_spec = mof.xtal_search.XtalSearchSpec(
-      pept_orig=np.array([0, 0, 0, 1]),
-      pept_axis=np.array([0, 0, 1, 0]),
-      # are these necessary:
-      sym_of_ligand=dict(HZ3='C3', DHZ3='C3', HZ4='C4', DHZ4='C4', HZD='D2', DHZD='D2'),
-      ligands=['HZ3', 'DHZ3'],
-      **kw,
-   )
    rotclouds = get_rotclouds(**kw)
+   rotcloud_pairs = get_rotcloud_pairs(**rotclouds, debug=kw.debug)
+   print('ALLOWED ROTAMER PAIRS')
+   for a, b in rotcloud_pairs:
+      print('   ', a.amino_acid, b.amino_acid)
+
+   if not kw.spacegroups:
+      print('\n!!!!!!!!!!!!!!!!!!!!!!!! no space groups !!!!!!!!!!!!!!!\n')
+      return
+   if not rotcloud_pairs:
+      print('\n!!!!!!!!!!!!!!!!!!!!!!!! no rotamers allowed!!!!!!!!!!!!\n')
+      return
 
    # parameters not to be considered as unique for checkpointing
    tohash = kw.sub(
       timer=None,
       continue_from_checkpoints=None,
       debug=None,
-      rotcloud_pairs=str([(a.amino_acid, b.amino_acid) for a, b in get_jobs(**rotclouds)]),
+      rotcloud_pairs=str([(a.amino_acid, b.amino_acid) for a, b in rotcloud_pairs]),
    )
 
    kwhash = str(mof.util.hash_str_to_int(str(tohash)))
@@ -90,20 +90,33 @@ def main():
    success = True
    for pdbpath, pose in prepped_pdb_gen:
       print('=' * 80)
-      print(f"{f'=== PDB: {pdbpath} ==='}:=^80")
+      print(f"{f'=== PDB: {pdbpath} ===':=^80}")
       print('=' * 80)
       mof.util.fix_bb_h_all(pose)
-      for rc1, rc2 in get_jobs(**rotclouds):
-         # try:
-         results.extend(
-            mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
-      # except Exception as e:
-      #    print(f'{"SOME EXCEPTION IN RUN":=^80}')
-      #    print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
-      #    print(type(e))
-      #    print(repr(e))
-      #    print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
-      #    success = False
+
+      for spacegroup in kw.spacegroups:
+         print(f"  {f'= spacegroup: {spacegroup} ===':=^76}")
+         search_spec = mof.xtal_search.XtalSearchSpec(
+            spacegroup=spacegroup,
+            pept_orig=np.array([0, 0, 0, 1]),
+            pept_axis=np.array([0, 0, 1, 0]),
+            # are these necessary:
+            sym_of_ligand=dict(HZ3='C3', DHZ3='C3', HZ4='C4', DHZ4='C4', HZD='D2', DHZD='D2'),
+            ligands=['HZ3', 'DHZ3'],
+            **kw,
+         )
+         for rc1, rc2 in rotcloud_pairs:
+            try:
+               results.extend(
+                  mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
+            except Exception as e:
+               print(f'{"SOME EXCEPTION IN RUN":=^80}')
+               print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
+               print(type(e))
+               print(repr(e))
+               print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
+               success = False
+
       with open(checkpoint_file, 'a') as out:
          out.write(f'{pdbpath}\n')
 
@@ -197,17 +210,16 @@ def get_rotclouds(**kw):
 
    return dict(lC=lC, lD=lD, lE=lE, lH=lH, lJ=lJ, dC=dC, dD=dD, dE=dE, dH=dH, dJ=dJ)
 
-def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
+def get_rotcloud_pairs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ, debug):
 
-   return [(lE, dJ)]  # I 21 3
-   # return [(lE, dJ)]  # P 41 3 2
-   # return [(lE, dJ)]  # P 43 3 2
+   if debug:
+      return [(lE, dJ)]
 
    return [
-      (dC, dC),  # 
-      (dC, lC),  # 
-      (lC, dC),  # 
-      (lC, lC),  # 
+      # (dC, dC),  #
+      # (dC, lC),  #
+      # (lC, dC),  #
+      # (lC, lC),  #
       (dC, dD),
       (dC, lD),
       (lC, dD),
@@ -224,14 +236,14 @@ def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
       (dC, lJ),
       (lC, dJ),
       (lC, lJ),
-      (dD, dD),  # 
-      (dD, lD),  # 
-      (lD, dD),  # 
-      (lD, lD),  # 
-      (dD, dE),  # 
-      (dD, lE),  # 
-      (lD, dE),  # 
-      (lD, lE),  # 
+      # (dD, dD),  #
+      # (dD, lD),  #
+      # (lD, dD),  #
+      # (lD, lD),  #
+      # (dD, dE),  #
+      # (dD, lE),  #
+      # (lD, dE),  #
+      # (lD, lE),  #
       (dD, dH),
       (dD, lH),
       (lD, dH),
@@ -240,10 +252,10 @@ def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
       (dD, lJ),
       (lD, dJ),
       (lD, lJ),
-      (dE, dE),  # 
-      (dE, lE),  # 
-      (lE, dE),  # 
-      (lE, lE),  # 
+      # (dE, dE),  #
+      # (dE, lE),  #
+      # (lE, dE),  #
+      # (lE, lE),  #
       (dE, dH),
       (dE, lH),
       (lE, dH),
@@ -252,18 +264,18 @@ def get_jobs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ):
       (dE, lJ),
       (lE, dJ),
       (lE, lJ),
-      (dH, dH),  # 
-      (dH, lH),  # 
-      (lH, dH),  # 
-      (lH, lH),  # 
-      (dH, dJ),  # 
-      (dH, lJ),  # 
-      (lH, dJ),  # 
-      (lH, lJ),  # 
-      (dJ, dJ),  # 
-      (dJ, lJ),  # 
-      (lJ, dJ),  # 
-      (lJ, lJ),  # 
+      # (dH, dH),  #
+      # (dH, lH),  #
+      # (lH, dH),  #
+      # (lH, lH),  #
+      # (dH, dJ),  #
+      # (dH, lJ),  #
+      # (lH, dJ),  #
+      # (lH, lJ),  #
+      # (dJ, dJ),  #
+      # (dJ, lJ),  #
+      # (lJ, dJ),  #
+      # (lJ, lJ),  #
    ]
 
 if __name__ == '__main__':

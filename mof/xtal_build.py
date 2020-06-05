@@ -12,6 +12,8 @@ from pyrosetta import AtomID
 def xtal_build(
       pdb_name,
       xspec,
+      aa1,
+      aa2,
       pose,
       peptide_sym,
       peptide_orig,
@@ -118,7 +120,7 @@ def xtal_build(
    assert np.allclose(min(celldims), max(celldims), atol=0.001)
    celldim = abs(min(celldims))
    if not (kw.min_cell_size <= celldim <= kw.max_cell_size):
-      print('    Fail on cell_size', celldim)
+      print('     ', xspec.spacegroup, pdb_name, aa1, aa2, 'Fail on cell_size', celldim)
       return []
 
    nsym = int(peptide_sym[1])
@@ -128,7 +130,7 @@ def xtal_build(
 
    solv_frac = mof.filters.approx_solvent_fraction(xtal_pose, xspec, celldim)
    if kw.max_solv_frac < solv_frac:
-      print('    Fail on solv_frac')
+      print('     ', xspec.spacegroup, pdb_name, aa1, aa2, 'Fail on solv_frac', solv_frac)
       return []
 
    # rt.numeric.xyzVec(hz[0], hz[1], hz[2]))
@@ -226,7 +228,7 @@ def xtal_build(
       if np.any(rpxbody.intersect(rpxbody,
                                   np.stack(prev) @ Xalign, x @ Xalign, mindis=clash_dis)):
          clash = True
-         print('    Fail on xtal clash')
+         print('     ', xspec.spacegroup, pdb_name, aa1, aa2, 'Fail on xtal clash', f'sub{i+1}')
          return []
 
       ncontact = rpxbody.contact_count(body_xalign, maxdis=contact_dis)
@@ -243,7 +245,7 @@ def xtal_build(
       #    assert 0
 
    if tot_ncontact < min_contacts:
-      print('    Fail on ncontact')
+      print('     ', xspec.spacegroup, pdb_name, aa1, aa2, 'Fail on ncontact', tot_ncontact)
       return []
 
    kw.timer.checkpoint('clash_check')
@@ -323,7 +325,8 @@ def xtal_build(
 
       # print('nonbonded_energy', nonbonded_energy)
       if nonbonded_energy > max_sym_score:
-         print('    Fail on nonbonded_energy')
+         print('     ', xspec.spacegroup, pdb_name, aa1, aa2,
+               'Fail on nonbonded_energy(max_sym_score)', nonbonded_energy)
          return []
 
    kw.timer.checkpoint('make sympose and "nonbonded" score')

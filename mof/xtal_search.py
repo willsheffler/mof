@@ -50,6 +50,8 @@ def xtal_search_two_residues(
 
    spec = search_spec
    xspec = spec.xtal_spec
+   aa1 = rotcloud1base.amino_acid
+   aa2 = rotcloud2base.amino_acid
 
    results = list()
 
@@ -61,7 +63,7 @@ def xtal_search_two_residues(
    # gets rid of the ".pdb" at the end of the pdb name
    pdb_name = p_n[:-4]
 
-   print(f'{pdb_name} searching', rotcloud1base.amino_acid, rotcloud2base.amino_acid)
+   print(f'  {pdb_name} searching', aa1, aa2)
 
    # check the symmetry type of the pdb
    last_res = rt.core.pose.chain_end_res(pose).pop()
@@ -141,7 +143,6 @@ def xtal_search_two_residues(
 
          # hits = (ang_delta < angle_err_tolerance) * (dist < dist_err_tolerance)
          if len(hits1):
-            # print(rotcloud1.amino_acid, rotcloud2.amino_acid, ires1, ires2)
             hits2 = bestrot2[hits1]
             hits = np.stack([hits1, hits2], axis=1)
             # print(
@@ -189,9 +190,8 @@ def xtal_search_two_residues(
                kw.timer.checkpoint('axes geom checks')
 
                # pose.dump_pdb('before.pdb')
-               pose2mut = mof.util.mutate_two_res(
-                  pose, ires1, rotcloud1.amino_acid, rotcloud1.rotchi[hit[0]], ires2,
-                  rotcloud2.amino_acid, rotcloud2.rotchi[hit[1]], sym_num)
+               pose2mut = mof.util.mutate_two_res(pose, ires1, aa1, rotcloud1.rotchi[hit[0]],
+                                                  ires2, aa2, rotcloud2.rotchi[hit[1]], sym_num)
                # pose2mut.dump_pdb('after.pdb')
 
                search_spec.sfxn_filter(pose2mut)
@@ -207,14 +207,15 @@ def xtal_search_two_residues(
                # if sc_2res > kw.max_2res_score: continue
                if sc_2res - sc_2res_orig > kw.max_2res_score: continue
 
-               tag = ('hit_%s_%s_%i_%i_%i' %
-                      (rotcloud1.amino_acid, rotcloud2.amino_acid, ires1, ires2, ihit))
+               tag = ('hit_%s_%s_%i_%i_%i' % (aa1, aa2, ires1, ires2, ihit))
 
                kw.timer.checkpoint('xtal_search')
 
                xtal_poses = mof.xtal_build.xtal_build(
                   pdb_name,
                   xspec,
+                  aa1,
+                  aa2,
                   pose2mut,
                   peptide_sym,
                   spec.pept_orig,
@@ -244,7 +245,8 @@ def xtal_search_two_residues(
                      continue
                   if kw.max_score_minimized < mininfo.score:
                      continue
-                     print('    Fail on minimzied score')
+                     print('     ', xspec.spacegroup, pdb_name, aa1, aa2, 'a on minimzied score',
+                           mininfo.score)
                      continue
                   celldim = xtal_pose.pdb_info().crystinfo().A()
                   label = f"{pdb_name}_{xspec.spacegroup.replace(' ','_')}_{tag}_cell{int(celldim):03}_ncontact{ncontact:02}_score{int(enonbonded):03}"
@@ -279,9 +281,9 @@ def xtal_search_two_residues(
                   ### debug crap
                   if results:
                      print(
-                        "  HIT",
-                        rotcloud1.amino_acid,
-                        rotcloud2.amino_acid,
+                        "  * HIT",
+                        aa1,
+                        aa2,
                         ires1,
                         ires2,
                         np.round(np.degrees(matchsymang), 3),
@@ -398,6 +400,8 @@ def xtal_search_single_residue(search_spec, pose, **kw):
                xtal_poses = mof.xtal_build.xtal_build(
                   pdb_name,
                   xspec,
+                  aa1,
+                  aa2,
                   rot_pose,
                   peptide_sym,
                   spec.pept_orig,
