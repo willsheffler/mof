@@ -282,18 +282,17 @@ def xtal_search_two_residues(
                   if results:
                      print(
                         "  * HIT",
+                        xspec.spacegroup,
+                        pdb_name,
                         aa1,
                         aa2,
                         ires1,
                         ires2,
-                        np.round(np.degrees(matchsymang), 3),
-                        hit,
-                        # rotcloud1.rotchi[hit[0]],
-                        # rotcloud2.rotchi[hit[1]],
-                        # sc_2res,
-                        np.round(dist[tuple(hit)], 3),
-                        np.round(ang_delta[tuple(hit)], 3),
-                        np.round(sc_2res - sc_2res_orig, 3),
+                        xtal_pose_min.sequence(),
+                        info.score,
+                        info.solv_frac,
+                        rotcloud1.rotchi[hit[0]],
+                        rotcloud2.rotchi[hit[1]],
                      )
                   # rotcloud1.dump_pdb(fn + '_a.pdb', stub1, which=hit[0])
                   # rotcloud2.dump_pdb(fn + '_b.pdb', stub2, which=hit[1])
