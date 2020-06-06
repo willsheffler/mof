@@ -92,5 +92,6 @@ tmp_cache.pickle
 before.pdb
 zafter.pdb
 asym.pdb
+WRONG_NO_OF_LIGANDING_ATOMS.pdb
 
 results/

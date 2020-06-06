@@ -5,7 +5,7 @@ def default_cli_parser(parent=None, **kw):
    addarg = rp.app.options.add_argument_unless_exists(parser)
    addarg("inputs", nargs="*", type=str, default=[], help='input structures')
    addarg('--spacegroups', nargs='*', type=str, default=[], help='')
-   addarg('--max_bb_redundancy', type=float, default=0.0, help='')
+   addarg('--max_bb_redundancy', type=float, default=0.1, help='')
    addarg('--err_tolerance', type=float, default=2.0, help='')
    addarg('--dist_err_tolerance', type=float, default=1.0, help='')
    addarg('--angle_err_tolerance', type=float, default=15, help='')

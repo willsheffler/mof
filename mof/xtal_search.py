@@ -280,10 +280,8 @@ def xtal_search_two_residues(
                      ))
                   ### debug crap
                   if results:
-                     print(
-                        "  * HIT",
-                        xspec.spacegroup,
-                        pdb_name,
+                     print('  * HIT %10s %7s %7s %3i %3i %9s %-7.3f %5.3f %s' % (
+                        xspec.spacegroup.replace(' ', '_'),
                         aa1,
                         aa2,
                         ires1,
@@ -291,9 +289,8 @@ def xtal_search_two_residues(
                         xtal_pose_min.sequence(),
                         info.score,
                         info.solv_frac,
-                        rotcloud1.rotchi[hit[0]],
-                        rotcloud2.rotchi[hit[1]],
-                     )
+                        pdb_name,
+                     ))
                   # rotcloud1.dump_pdb(fn + '_a.pdb', stub1, which=hit[0])
                   # rotcloud2.dump_pdb(fn + '_b.pdb', stub2, which=hit[1])
                   # rpxbody2.dump_pdb(fn + '_sym.pdb')

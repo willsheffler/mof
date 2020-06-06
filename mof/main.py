@@ -3,10 +3,9 @@ from mof.pyrosetta_init import rosetta
 # from concurrent.futures import ProcessPoolExecutor
 from hashlib import sha1
 
-def _gen_pdbs(pdblist, seenit=[]):
+def _gen_pdbs(pdblist, already_done=set()):
    for path in pdblist:
-      path = os.path.abspath(path)
-      if path not in seenit:
+      if path not in already_done:
          yield path, rosetta.core.import_pose.pose_from_file(path)
       else:
          print(f"\n{f'!!! ALREADY COMPLETE: {path} !!!':!^80}\n")
@@ -41,7 +40,7 @@ def main():
       kw.max_cell_size = 50
       kw.max_solv_frac = 0.8
       kw.debug = True
-      # kw.continue_from_checkpoints = True
+      kw.continue_from_checkpoints = True
 
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
@@ -70,20 +69,29 @@ def main():
    )
 
    kwhash = str(mof.util.hash_str_to_int(str(tohash)))
-   checkpoint_file = f'{kw.output_prefix}_checkpoints_{kwhash}/pid{os.getpid()}.checkpoint'
+   checkpoint_file = f'{kw.output_prefix}_checkpoints/{kwhash}.checkpoint'
    os.makedirs(os.path.dirname(checkpoint_file), exist_ok=True)
 
-   seenit, totalseen = set(), 0
+   already_done, ntries = set(), 1
    if kw.continue_from_checkpoints:
-      for chk in glob.glob(f'{os.path.dirname(checkpoint_file)}/*.checkpoint'):
-         with open(chk) as inp:
-            pdbs_seen = [line.strip() for line in inp]
-            seenit.update(pdbs_seen)
-            totalseen = totalseen + 1
-      if totalseen != len(seenit):
-         print(f'WARNING: unique pdbs run: {len(seenit)}, total run: {totalseen}')
-   pdb_gen = _gen_pdbs(kw.inputs, seenit)
+      if os.path.exists(checkpoint_file):
+         with open(checkpoint_file) as inp:
+            seen = [line.strip() for line in inp]
+            if seen: ntries = int(seen[0]) + 1
+            already_done.update(seen[1:])
+         if already_done:
+            with open(checkpoint_file, 'w') as out:
+               out.write(str(ntries) + '\n')
+               for checkpoint in already_done:
+                  out.write(checkpoint + '\n')
+      else:
+         with open(checkpoint_file, 'w') as out:
+            out.write(str(ntries) + '\n')
+   pdb_gen = _gen_pdbs(kw.inputs, already_done)
    prepped_pdb_gen = mof.util.prep_poses(pdb_gen)
+
+   progress_total = len(kw.inputs) * len(kw.spacegroups) * len(rotcloud_pairs)
+   progress = len(already_done)
 
    results = list()
    kw.timer.checkpoint('main')
@@ -106,16 +114,20 @@ def main():
             **kw,
          )
          for rc1, rc2 in rotcloud_pairs:
-            try:
-               results.extend(
-                  mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
-            except Exception as e:
-               print(f'{"SOME EXCEPTION IN RUN":=^80}')
-               print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
-               print(type(e))
-               print(repr(e))
-               print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
-               success = False
+            checkpoint = f'{pdbpath}_{spacegroup.replace("","_")}_{rc1.amino_acid}_{rc2.amino_acid}'
+            if checkpoint not in already_done:
+               try:
+                  results.extend(
+                     mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
+               except Exception as e:
+                  print(f'{"SOME EXCEPTION IN RUN":=^80}')
+                  print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
+                  print(type(e))
+                  print(repr(e))
+                  print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
+                  success = False
+               with open(checkpoint_file, 'a') as out:
+                  out.write(checkpoint + '\n')
 
       with open(checkpoint_file, 'a') as out:
          out.write(f'{pdbpath}\n')
@@ -150,9 +162,9 @@ def main():
 
    results = mof.result.results_to_xarray(results)
    results.attrs['kw'] = kw
-   rfname = kw.output_prefix + 'info.pickle'
-   if not success:
-      rfname = kw.output_prefix + '__PARTIAL__info.pickle'
+   rfname = f'{kw.output_prefix}_info{ntries}_kwhash{kwhash}.pickle'
+   # if not success:
+   # rfname = kw.output_prefix + '__PARTIAL__info.pickle'
    print('saving results to', rfname)
    rp.dump(results, rfname)
    print(f'{" RESULTS ":=^80}')
