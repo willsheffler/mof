@@ -144,6 +144,7 @@ def main():
       print('NO RESULTS')
       return
 
+   # cluster
    scores = np.array([r.info.score for r in results])
    sorder = np.argsort(scores)  # perm to sorted
    crd = np.concatenate([r.info.bbcoords for r in results])[sorder].reshape(len(scores), -1)
@@ -153,6 +154,17 @@ def main():
    results = [results[i] for i in clustcen]
    kw.timer.checkpoint('filter_redundancy')
 
+   # dump pdbs
+   os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
+   for i, result in enumerate(results):
+      fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
+      print('dumping', fname)
+      result.info.fname = fname
+      result.asym_pose_min.dump_pdb(fname)
+      # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.info.label + '.pdb')
+   kw.timer.checkpoint('dump_pdbs')
+
+   # make Dataset
    results = mof.result.results_to_xarray(results)
    results.attrs['kw'] = kw
    rfname = f'{kw.output_prefix}_info{ntries}_kwhash{kwhash}.pickle'
@@ -162,18 +174,6 @@ def main():
    print(results)
    print(f'{" END RESULTS ":=^80}')
    kw.timer.checkpoint('dump_info')
-
-   os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
-   for i, result in enumerate(results):
-      if i in non_redundant:
-         fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
-         print('dumping', fname)
-         result.info.fname = fname
-         result.asym_pose_min.dump_pdb(fname)
-         # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.info.label + '.pdb')
-   kw.timer.checkpoint('dump_pdbs')
-
-   # concatenate results into pandas table!!!!!!!
 
    print("DONE")
 
