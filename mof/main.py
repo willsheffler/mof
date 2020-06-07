@@ -22,7 +22,8 @@ def main():
       print(f'{str(kw.inputs):!^80}')
       print(f'{"":!^80}')
 
-      kw.spacegroups = ['i213', 'p4132', 'p4332']
+      # kw.spacegroups = ['i213', 'p4132', 'p4332']
+      kw.spacegroups = ['i213']
       kw.scale_number_of_rotamers = 0.5
       kw.max_bb_redundancy = 0.0  # 0.3
       kw.err_tolerance = 2.0
@@ -40,7 +41,7 @@ def main():
       kw.max_cell_size = 50
       kw.max_solv_frac = 0.8
       kw.debug = True
-      kw.continue_from_checkpoints = True
+      kw.continue_from_checkpoints = False
 
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
@@ -67,6 +68,8 @@ def main():
       debug=None,
       rotcloud_pairs=str([(a.amino_acid, b.amino_acid) for a, b in rotcloud_pairs]),
    )
+
+   # TODO: CHECKPOINTING .info file!!!!!!!
 
    kwhash = str(mof.util.hash_str_to_int(str(tohash)))
    checkpoint_file = f'{kw.output_prefix}_checkpoints/{kwhash}.checkpoint'
@@ -128,48 +131,47 @@ def main():
                   success = False
                with open(checkpoint_file, 'a') as out:
                   out.write(checkpoint + '\n')
+         with open(checkpoint_file, 'a') as out:
+            out.write(f'{pdbpath}\n')
 
-      with open(checkpoint_file, 'a') as out:
-         out.write(f'{pdbpath}\n')
+      if not results:
+         print(kw.timer)
+         print(f'{"NO RESULTS":=^80}')
+         return
 
-   if not results:
-      print(kw.timer)
-      print(f'{"NO RESULTS":=^80}')
-      return
-
-   kw.timer.checkpoint('main')
-   xforms = np.array([r.xalign for r in results])
-   non_redundant = np.arange(len(results))
-   if kw.max_bb_redundancy > 0.0:
-      non_redundant = rp.filter.filter_redundancy(xforms, results[0].rpxbody, every_nth=1,
-                                                  max_bb_redundancy=kw.max_bb_redundancy,
-                                                  max_cluster=10000)
-   kw.timer.checkpoint('filter_redundancy')
-
-   os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
-   for i, result in enumerate(results):
-      if i in non_redundant:
-         fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb.gz'
-         print('dumping', fname)
-         result.info.fname = fname
-         result.asym_pose_min.dump_pdb(fname)
-         # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.info.label + '.pdb')
-   kw.timer.checkpoint('dumping pdbs')
-
+      kw.timer.checkpoint('main')
    if len(results) == 0:
       print('NO RESULTS')
       return
 
+   scores = np.array([r.info.score for r in results])
+   sorder = np.argsort(scores)  # perm to sorted
+   crd = np.concatenate([r.info.bbcoords for r in results])[sorder].reshape(len(scores), -1)
+   nbbatm = (results[0].asym_pose_min.size() - 1) * 3
+   clustcen = rp.cluster.cookie_cutter(crd, kw.max_bb_redundancy * np.sqrt(nbbatm))
+   clustcen = sorder[clustcen]
+   results = [results[i] for i in clustcen]
+   kw.timer.checkpoint('filter_redundancy')
+
    results = mof.result.results_to_xarray(results)
    results.attrs['kw'] = kw
    rfname = f'{kw.output_prefix}_info{ntries}_kwhash{kwhash}.pickle'
-   # if not success:
-   # rfname = kw.output_prefix + '__PARTIAL__info.pickle'
    print('saving results to', rfname)
    rp.dump(results, rfname)
    print(f'{" RESULTS ":=^80}')
    print(results)
    print(f'{" END RESULTS ":=^80}')
+   kw.timer.checkpoint('dump_info')
+
+   os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
+   for i, result in enumerate(results):
+      if i in non_redundant:
+         fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
+         print('dumping', fname)
+         result.info.fname = fname
+         result.asym_pose_min.dump_pdb(fname)
+         # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.info.label + '.pdb')
+   kw.timer.checkpoint('dump_pdbs')
 
    # concatenate results into pandas table!!!!!!!
 
@@ -225,7 +227,7 @@ def get_rotclouds(**kw):
 def get_rotcloud_pairs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ, debug):
 
    if debug:
-      return [(lE, dJ)]
+      return [(lE, dJ), (dD, dJ)]
 
    return [
       # (dC, dC),  #

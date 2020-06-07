@@ -273,8 +273,8 @@ def xtal_search_two_residues(
                   results.append(
                      rp.Bunch(
                         xspec=xspec,
-                        rpxbody=rpxbody,
-                        asym_pose=xtal_pose,
+                        # rpxbody=rpxbody,
+                        # asym_pose=xtal_pose,
                         asym_pose_min=xtal_pose_min,
                         info=info,
                      ))
