@@ -22,8 +22,9 @@ def main():
       print(f'{str(kw.inputs):!^80}')
       print(f'{"":!^80}')
 
-      # kw.spacegroups = ['i213', 'p4132', 'p4332']
-      kw.spacegroups = ['i213']
+      kw.spacegroups = ['i213', 'p4132', 'p4332']
+      # kw.spacegroups = ['p4132', 'p4332']
+      # kw.spacegroups = ['i213']
       kw.scale_number_of_rotamers = 0.5
       kw.max_bb_redundancy = 0.0  # 0.3
       kw.err_tolerance = 2.0
