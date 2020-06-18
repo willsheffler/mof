@@ -27,6 +27,10 @@
          "name": "main.py pymol",
          "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py --scale_number_of_rotamers 0.5 &> sublime_build.log; if ls *.pdb; then pymol *.pdb; fi"
       },
+      {
+         "name": "info_examples",
+         "shell_cmd": "cd $folder; PYTHONPATH=. python mof/app/info_examples.py /home/sheffler/debug/mof/doubleres2/scaffolds_c3/9res/mofdock__concatenated_info.pickle &> sublime_build.log"
+      },
    ],
    "folders":
    [

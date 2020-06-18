@@ -95,3 +95,5 @@ asym.pdb
 WRONG_NO_OF_LIGANDING_ATOMS.pdb
 
 results/
+
+examples/.ipynb_checkpoints/*
