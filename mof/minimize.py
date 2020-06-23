@@ -35,25 +35,19 @@ def minimize_mof_xtal(sfxn, xspec, pose, debug=False, **kw):
    metalname = 'ZN'
    metalresnos = [nresasym, 2 * nresasym]  # TODO.. make not stupid
    metalnbonds = 4
-   metalligang = np.radians(109.47)
-   metalligdist = 2.2
-   metalaid = AtomID(1, metalresnos[0])
-   sd_metal_olap = 0.01
-   sd_metal_dir = 0.4
-   sd_metal_lig_dist = 0.2
-   sd_metal_lig_ang = 0.4
-   sd_metal_coo = 0.5
-   sd_cut_dis = 0.01
-   sd_cut_ang = 0.01
-   sd_cut_dih = 0.1
 
-   sfxn_orig = sfxn
-   sfxn = sfxn.clone()
-   # fa_elec is useless whin the ZN is virtual -- missing charge?
-   # sfxn.set_weight(r.core.scoring.ScoreType.fa_elec, 0.0)
-   sfxn.set_weight(r.core.scoring.ScoreType.atom_pair_constraint, 1.0)
-   sfxn.set_weight(r.core.scoring.ScoreType.angle_constraint, 1.0)
-   sfxn.set_weight(r.core.scoring.ScoreType.dihedral_constraint, 1.0)
+   metalaid = AtomID(1, metalresnos[0])
+
+   # cst_ang_metal = 109.47
+   # cst_dis_metal = 2.2
+   # cst_sd_metal_olap = 0.01
+   # cst_sd_metal_dir = 0.4
+   # cst_sd_metal_lig_dist = 0.2
+   # cst_sd_metal_lig_ang = 0.4
+   # cst_sd_metal_coo = 0.5
+   # cst_sd_cut_dis = 0.01
+   # cst_sd_cut_ang = 0.01
+   # cst_sd_cut_dih = 0.1
 
    pose = pose.clone()
    r.core.pose.remove_lower_terminus_type_from_pose_residue(pose, beg)
@@ -95,16 +89,17 @@ def minimize_mof_xtal(sfxn, xspec, pose, debug=False, **kw):
    # pose.dump_pdb('check_cuts.pdb')
    # assert 0
 
-   f_metal_olap = r.core.scoring.func.HarmonicFunc(0.0, sd_metal_olap)
-   f_point_at_metal = r.core.scoring.func.HarmonicFunc(0.0, sd_metal_dir)
-   f_metal_coo = r.core.scoring.func.CircularHarmonicFunc(0.0, sd_metal_coo)
-   f_metal_lig_dist = r.core.scoring.func.HarmonicFunc(metalligdist, sd_metal_lig_dist)
-   f_metal_lig_ang = r.core.scoring.func.HarmonicFunc(metalligang, sd_metal_lig_ang)
-   f_cut_dis = r.core.scoring.func.HarmonicFunc(1.328685, sd_cut_dis)
-   f_cut_ang_cacn = r.core.scoring.func.HarmonicFunc(2.028, sd_cut_ang)
-   f_cut_ang_cnca = r.core.scoring.func.HarmonicFunc(2.124, sd_cut_ang)
-   f_cut_dih = r.core.scoring.func.CircularHarmonicFunc(np.pi, sd_cut_dih)
-   f_cut_dihO = r.core.scoring.func.CircularHarmonicFunc(0.00, sd_cut_dih)
+   f_metal_lig_dist = r.core.scoring.func.HarmonicFunc(kw.cst_dis_metal, kw.cst_sd_metal_lig_dist)
+   f_metal_lig_ang = r.core.scoring.func.HarmonicFunc(np.radians(kw.cst_ang_metal),
+                                                      kw.cst_sd_metal_lig_ang)
+   f_metal_olap = r.core.scoring.func.HarmonicFunc(0.0, kw.cst_sd_metal_olap)
+   f_point_at_metal = r.core.scoring.func.HarmonicFunc(0.0, kw.cst_sd_metal_dir)
+   f_metal_coo = r.core.scoring.func.CircularHarmonicFunc(0.0, kw.cst_sd_metal_coo)
+   f_cut_dis = r.core.scoring.func.HarmonicFunc(1.328685, kw.cst_sd_cut_dis)
+   f_cut_ang_cacn = r.core.scoring.func.HarmonicFunc(2.028, kw.cst_sd_cut_ang)
+   f_cut_ang_cnca = r.core.scoring.func.HarmonicFunc(2.124, kw.cst_sd_cut_ang)
+   f_cut_dih = r.core.scoring.func.CircularHarmonicFunc(np.pi, kw.cst_sd_cut_dih)
+   f_cut_dihO = r.core.scoring.func.CircularHarmonicFunc(0.00, kw.cst_sd_cut_dih)
 
    ################### check cutpoint ##################
 

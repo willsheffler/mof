@@ -2,7 +2,7 @@ import numpy as np, rpxdock as rp
 
 from pyrosetta import rosetta as rt
 import mof
-from mof.pyrosetta_init import lj_sfxn
+from mof.pyrosetta_init import get_sfxn
 
 from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec
 from pyrosetta.rosetta.numeric import xyzMatrix_double_t as xyzMat
@@ -32,6 +32,8 @@ def xtal_build(
 ):
    kw = rp.Bunch(kw)
    if not kw.timer: kw.timer = rp.Timer().start()
+
+   lj_sfxn = get_sfxn('sterics')
 
    sym1 = xspec.sym1
    orig1 = xspec.orig1

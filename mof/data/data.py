@@ -3,14 +3,15 @@ import os, pyrosetta, logging, _pickle, rpxdock as rp
 log = logging.getLogger(__name__)
 
 data_dir = os.path.dirname(__file__)
+motifs_dir = str(os.path.join(data_dir, "motifs"))
+params_dir = str(os.path.join(data_dir, "rosetta_params"))
+weights_dir = str(os.path.join(data_dir, "rosetta_weights"))
 
 frank_space_groups = os.path.join(data_dir, "crystals_from_point.csv")
 
 peptides_dir = os.path.join(data_dir, "peptides")
 a_c3_peptide = os.path.join(peptides_dir, "c3_21res_c.101.12_0001.pdb")
 
-motifs_dir = str(os.path.join(data_dir, "motifs"))
-params_dir = str(os.path.join(data_dir, "rosetta_params"))
 params = rp.Bunch(
    HZ3=str(os.path.join(motifs_dir, "HZ3.params")),
    HZD=str(os.path.join(motifs_dir, "HZD.params")),

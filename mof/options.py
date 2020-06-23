@@ -18,6 +18,11 @@ def default_cli_parser(parent=None, **kw):
    addarg('--contact_dis', type=float, default=7.0, help='')
    addarg('--min_contacts', type=float, default=0, help='')
    addarg('--max_sym_score', type=float, default=100.0, help='')
+
+   addarg('--sfxn_rotamer_weights', type=str, default='rotamer.wts', help='')
+   addarg('--sfxn_sterics_weights', type=str, default='sterics.wts', help='')
+   addarg('--sfxn_minimize_weights', type=str, default='minimize.wts', help='')
+
    addarg('--max_score_minimized', type=float, default=50.0, help='')
    addarg('--min_cell_size', type=float, default=0, help='')
    addarg('--max_cell_size', type=float, default=50, help='')
@@ -43,6 +48,17 @@ def default_cli_parser(parent=None, **kw):
    addarg("--debug", action="store_true", default=False, help='')
    addarg("--overwrite", action="store_true", default=False, help='')
    addarg("--continue_from_checkpoints", action="store_true", default=False, help='')
+
+   addarg('--cst_ang_metal', type=float, default=109.47, help='')
+   addarg('--cst_dis_metal', type=float, default=2.2, help='')
+   addarg('--cst_sd_metal_olap', type=float, default=0.01, help='')
+   addarg('--cst_sd_metal_dir', type=float, default=0.4, help='')
+   addarg('--cst_sd_metal_lig_dist', type=float, default=0.2, help='')
+   addarg('--cst_sd_metal_lig_ang', type=float, default=0.4, help='')
+   addarg('--cst_sd_metal_coo', type=float, default=0.5, help='')
+   addarg('--cst_sd_cut_dis', type=float, default=0.01, help='')
+   addarg('--cst_sd_cut_ang', type=float, default=0.01, help='')
+   addarg('--cst_sd_cut_dih', type=float, default=0.1, help='')
 
    parser.has_mof_args = True
    return parser

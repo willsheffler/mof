@@ -29,7 +29,7 @@
       },
       {
          "name": "info_examples",
-         "shell_cmd": "cd $folder; PYTHONPATH=. python mof/app/info_examples.py /home/sheffler/debug/mof/doubleres2/scaffolds_c3/9res/mofdock__concatenated_info.pickle &> sublime_build.log"
+         "shell_cmd": "cd $folder; PYTHONPATH=. python examples/info_examples.py /home/sheffler/debug/mof/doubleres2/scaffolds_c3/9res/mofdock__concatenated_info.pickle &> sublime_build.log"
       },
    ],
    "folders":

@@ -22,9 +22,6 @@ def main():
       print(f'{str(kw.inputs):!^80}')
       print(f'{"":!^80}')
 
-      kw.spacegroups = ['i213', 'p4132', 'p4332']
-      # kw.spacegroups = ['p4132', 'p4332']
-      # kw.spacegroups = ['i213']
       kw.scale_number_of_rotamers = 0.5
       kw.max_bb_redundancy = 0.0  # 0.3
       kw.err_tolerance = 2.0
@@ -43,6 +40,11 @@ def main():
       kw.max_solv_frac = 0.8
       kw.debug = True
       kw.continue_from_checkpoints = False
+
+      kw.spacegroups = ['i213', 'p4132', 'p4332']
+      # kw.spacegroups = ['p4132', 'p4332']
+      if kw.debug:
+         kw.spacegroups = ['i213']
 
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.103.8_0001.pdb'])
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])

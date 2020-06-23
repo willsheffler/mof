@@ -1,19 +1,27 @@
 import mof, rpxdock as rp, numpy as np
 from rpxdock import homog as hm
 
-import mof.pyrosetta_init
+from mof.pyrosetta_init import get_sfxn
 from pyrosetta import rosetta as rosetta
 from pyrosetta.rosetta.core.pose import Pose
 from pyrosetta.rosetta.core.id import AtomID
 from pyrosetta.rosetta.numeric import xyzVector_double_t as rVec
-
 from pyrosetta import rosetta as rt, init as pyrosetta_init
 
 class XtalSearchSpec(object):
    """stuff needed for pepdide xtal search"""
-   def __init__(self, spacegroup, pept_axis, pept_orig, ligands, sym_of_ligand, max_dun_score,
-                **kw):
+   def __init__(
+         self,
+         spacegroup,
+         pept_axis,
+         pept_orig,
+         ligands,
+         sym_of_ligand,
+         max_dun_score,
+         **kw,
+   ):
       super(XtalSearchSpec, self).__init__()
+      kw = rp.Bunch(kw)
       self.spacegroup = spacegroup
       self.pept_axis = pept_axis
       self.pept_orig = pept_orig
@@ -23,12 +31,20 @@ class XtalSearchSpec(object):
       self.xtal_spec = mof.xtal_spec.get_xtal_spec(self.spacegroup)
       self.chm = rt.core.chemical.ChemicalManager.get_instance()
       self.rts = self.chm.residue_type_set('fa_standard')
-      self.dun_sfxn = rt.core.scoring.ScoreFunction()
-      self.dun_sfxn.set_weight(rt.core.scoring.ScoreType.fa_dun, 1.0)
-      self.sfxn_filter = rt.core.scoring.ScoreFunction()
-      self.sfxn_filter.set_weight(rt.core.scoring.ScoreType.fa_atr, 1.00)
-      self.sfxn_filter.set_weight(rt.core.scoring.ScoreType.fa_rep, 0.55)
-      # self.sfxn_filter = rt.core.scoring.get_score_function()
+
+      self.sfxn_rotamer = get_sfxn('rotamer')
+      # self.sfxn_rotamer.set_weight(rt.core.scoring.ScoreType.fa_dun, 1.0)
+
+      self.sfxn_sterics = get_sfxn('sterics')
+      # self.sfxn_sterics.set_weight(rt.core.scoring.ScoreType.fa_atr, 1.00)
+      # self.sfxn_sterics.set_weight(rt.core.scoring.ScoreType.fa_rep, 0.55)
+
+      self.sfxn_minimize = get_sfxn('minimize')
+      # # fa_elec is useless whin the ZN is virtual -- missing charge?
+      # # sfxn_minimize.set_weight(r.core.scoring.ScoreType.fa_elec, 0.0)
+      # sfxn_minimize.set_weight(r.core.scoring.ScoreType.atom_pair_constraint, 1.0)
+      # sfxn_minimize.set_weight(r.core.scoring.ScoreType.angle_constraint, 1.0)
+      # sfxn_minimize.set_weight(r.core.scoring.ScoreType.dihedral_constraint, 1.0)
 
 def xtal_search_two_residues(
       search_spec,
@@ -57,7 +73,7 @@ def xtal_search_two_residues(
 
    dont_replace_these_aas = [spec.rts.name_map('CYS'), spec.rts.name_map('PRO')]
 
-   farep_orig = search_spec.sfxn_filter(pose)
+   farep_orig = search_spec.sfxn_sterics(pose)
 
    p_n = pose.pdb_info().name().split('/')[-1]
    # gets rid of the ".pdb" at the end of the pdb name
@@ -194,7 +210,7 @@ def xtal_search_two_residues(
                                                   ires2, aa2, rotcloud2.rotchi[hit[1]], sym_num)
                # pose2mut.dump_pdb('after.pdb')
 
-               search_spec.sfxn_filter(pose2mut)
+               search_spec.sfxn_sterics(pose2mut)
                sc_2res = (pose2mut.energies().residue_total_energy(ires1) +
                           pose2mut.energies().residue_total_energy(ires2))
                sc_2res_orig = (pose.energies().residue_total_energy(ires1) +
@@ -238,9 +254,13 @@ def xtal_search_two_residues(
 
                for ixtal, (xalign, xtal_pose, body_pdb, ncontact, enonbonded,
                            solv_frac) in enumerate(xtal_poses):
-                  sfxn = rosetta.core.scoring.get_score_function()
+
                   xtal_pose_min, mininfo = mof.minimize.minimize_mof_xtal(
-                     sfxn, xspec, xtal_pose, **kw)
+                     spec.sfxn_minimize,
+                     xspec,
+                     xtal_pose,
+                     **kw,
+                  )
                   if not xtal_pose_min:
                      continue
                   if kw.max_score_minimized < mininfo.score:
@@ -359,7 +379,7 @@ def xtal_search_single_residue(search_spec, pose, **kw):
                rot_pose.set_xyz(AtomID(rot_pose.residue(ires).atom_index('2HB'), ires),
                                 rVec(0, 0, +2))
 
-            spec.dun_sfxn(rot_pose)
+            spec.sfxn_rotamer(rot_pose)
             dun_score = rot_pose.energies().residue_total_energy(ires)
             if dun_score >= spec.max_dun_score:
                bad_rots += 1

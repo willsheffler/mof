@@ -1,38 +1,57 @@
-import pyrosetta, numpy as np
+import pyrosetta, numpy as np, rpxdock as rp, os
+from functools import lru_cache
 from pyrosetta import rosetta
 from pyrosetta.rosetta import core
+from pyrosetta.rosetta.core import scoring
 from mof import data
 
 from pyrosetta.rosetta.numeric import xyzVector_double_t as rVec
 from pyrosetta.rosetta.numeric import xyzMatrix_double_t as rMat
 from pyrosetta import AtomID
 from pyrosetta.rosetta.core.scoring import ScoreType
+
+################################################################
+
 # pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta'
+
 pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta_cart'
+
 # pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta -output_virtual'
+
+################################################################
 
 pyrosetta.init(pyrosetta_flags)
 
 chm = core.chemical.ChemicalManager.get_instance()
 rts = chm.residue_type_set('fa_standard')
 
-default_sfxn = core.scoring.get_score_function()
-rotamer_sfxn = core.scoring.ScoreFunction()
-for st in (
-      ScoreType.fa_dun,
-      ScoreType.fa_dun_dev,
-      ScoreType.fa_dun_rot,
-      ScoreType.fa_dun_semi,
-      ScoreType.fa_intra_elec,
-      ScoreType.fa_intra_rep,
-):
-   rotamer_sfxn.set_weight(st, default_sfxn.get_weight(st))
-
-lj_sfxn = core.scoring.ScoreFunction()
-lj_sfxn.set_weight(ScoreType.fa_atr, 1.0)
-lj_sfxn.set_weight(ScoreType.fa_rep, 0.55)
-
 makelattice = lambda x: rosetta.protocols.cryst.MakeLatticeMover().apply(x)
+
+def get_sfxn(tag='cli', **kw):
+   kw = rp.Bunch(kw)
+   tag = tag.lower()
+   if tag is 'cli':
+      return scoring.get_score_function()
+   elif tag is 'rotamer':
+      get_sfxn_weights(kw.sfxn_rotamer_weights)
+      return get_sfxn_weights(kw.sfxn_rotamer_weights)
+   elif tag is 'sterics':
+      return get_sfxn_weights(kw.sfxn_sterics_weights)
+   elif tag is 'minimize':
+      return get_sfxn_weights(kw.sfxn_minimize_weights)
+   else:
+      return get_sfxn_weights(tag)
+   raise ValueError(f'unknown rosetta scorefunction tag: {tag}')
+
+def get_sfxn_weights(weights_file):
+   wf = weights_file
+   if not os.path.exists(wf):
+      wf = os.path.join(data.weights_dir, wf)
+      if not os.path.exists(wf):
+         wf = os.path.join(data.weights_dir, wf + '.wts')
+   if not os.path.exists(wf):
+      raise ValueError(f'rosetta weights file does not exist: {weights_file}')
+   return scoring.ScoreFunctionFactory.create_score_function(wf)
 
 def printscores(sfxn, pose):
    for st in sfxn.get_nonzero_weighted_scoretypes():
@@ -61,12 +80,6 @@ def addcst_dih(pose, ires, iname, jres, jname, kres, kname, lres, lname, func):
                                                              name2aid(pose, lres, lname), func)
    pose.add_constraint(cst)
    return cst
-
-def get_res_energy(pose, st, ires):
-   return
-
-def get_rotamer_energy(pose, ires):
-   return rotamer_sfxn(pose)
 
 def make_residue(resn):
    if len(resn) == 1:
