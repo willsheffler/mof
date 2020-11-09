@@ -21,11 +21,11 @@
       },
       {
          "name": "main.py",
-         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py --scale_number_of_rotamers 0.5 &> sublime_build.log"
+         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py &> sublime_build.log"
       },
       {
          "name": "main.py pymol",
-         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py --scale_number_of_rotamers 0.5 &> sublime_build.log; if ls *.pdb; then pymol *.pdb; fi"
+         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py &> sublime_build.log; if ls *.pdb; then pymol *.pdb; fi"
       },
       {
          "name": "info_examples",

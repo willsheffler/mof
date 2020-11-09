@@ -50,15 +50,18 @@ def default_cli_parser(parent=None, **kw):
    addarg("--continue_from_checkpoints", action="store_true", default=False, help='')
 
    addarg('--cst_ang_metal', type=float, default=109.47, help='')
-   addarg('--cst_dis_metal', type=float, default=2.2, help='')
+   addarg('--cst_dis_metal', type=float, default=2.3, help='')
    addarg('--cst_sd_metal_olap', type=float, default=0.01, help='')
    addarg('--cst_sd_metal_dir', type=float, default=0.4, help='')
-   addarg('--cst_sd_metal_lig_dist', type=float, default=0.2, help='')
+   addarg('--cst_sd_metal_lig_dist', type=float, default=0.1, help='')
    addarg('--cst_sd_metal_lig_ang', type=float, default=0.4, help='')
    addarg('--cst_sd_metal_coo', type=float, default=0.5, help='')
    addarg('--cst_sd_cut_dis', type=float, default=0.01, help='')
    addarg('--cst_sd_cut_ang', type=float, default=0.01, help='')
    addarg('--cst_sd_cut_dih', type=float, default=0.1, help='')
+
+   addarg("--dont_replace_these_aas", nargs="*", type=str, default=['PRO'],
+          help='AAs which should not be changed')
 
    parser.has_mof_args = True
    return parser

@@ -1,4 +1,5 @@
-import sys, numpy as np, rpxdock as rp, os, pickle, mof, xarray as xr, glob
+import sys, numpy as np, os, pickle, mof, xarray as xr, glob
+import rpxdock as rp
 from mof.pyrosetta_init import rosetta
 # from concurrent.futures import ProcessPoolExecutor
 from hashlib import sha1
@@ -10,18 +11,24 @@ def _gen_pdbs(pdblist, already_done=set()):
       else:
          print(f"\n{f'!!! ALREADY COMPLETE: {path} !!!':!^80}\n")
 
-def main():
+def main_single_res():
+   kw = mof.options.get_cli_args()
+   kw.timer = rp.Timer().start()
+
+def main_double_res():
 
    kw = mof.options.get_cli_args()
    kw.timer = rp.Timer().start()
 
+   # crappy hacky test
    if len(kw.inputs) is 0:
       kw.inputs = ['mof/data/peptides/c.2.6_0001.pdb']
       print(f'{"":!^80}')
       print(f'{"no pdb list input, using test only_one":!^80}')
       print(f'{str(kw.inputs):!^80}')
       print(f'{"":!^80}')
-
+      kw.output_prefix = '_mof_main_test_output/'
+      kw.spacegroups = ['i213']
       kw.scale_number_of_rotamers = 0.5
       kw.max_bb_redundancy = 0.0  # 0.3
       kw.err_tolerance = 2.0
@@ -37,7 +44,7 @@ def main():
       kw.max_score_minimized = 50.0
       kw.min_cell_size = 0
       kw.max_cell_size = 50
-      kw.max_solv_frac = 0.8
+      kw.max_solv_frac = 0.80
       kw.debug = True
       kw.continue_from_checkpoints = False
 
@@ -50,6 +57,8 @@ def main():
       # pdb_gen = _gen_pdbs(['mof/data/peptides/c3_21res_c.10.3_0001.pdb'])
       # pdb_gen = _gen_pdbs(
       # ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
+
+   os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
 
    rotclouds = get_rotclouds(**kw)
    rotcloud_pairs = get_rotcloud_pairs(**rotclouds, debug=kw.debug)
@@ -123,8 +132,14 @@ def main():
             checkpoint = f'{pdbpath}_{spacegroup.replace("","_")}_{rc1.amino_acid}_{rc2.amino_acid}'
             if checkpoint not in already_done:
                try:
-                  results.extend(
-                     mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
+                  r = mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw)
+                  results.extend(r)
+                  for i, result in enumerate(results):
+                     fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
+                     print('dumping', fname)
+                     result.info.fname = fname
+                     result.asym_pose_min.dump_pdb(fname)
+
                except Exception as e:
                   print(f'{"SOME EXCEPTION IN RUN":=^80}')
                   print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
@@ -158,13 +173,12 @@ def main():
    kw.timer.checkpoint('filter_redundancy')
 
    # dump pdbs
-   os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
-   for i, result in enumerate(results):
-      fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
-      print('dumping', fname)
-      result.info.fname = fname
-      result.asym_pose_min.dump_pdb(fname)
-      # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.info.label + '.pdb')
+   #   for i, result in enumerate(results):
+   #      fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
+   #      print('dumping', fname)
+   #      result.info.fname = fname
+   #      result.asym_pose_min.dump_pdb(fname)
+   #      # rp.util.dump_str(result.symbody_pdb, 'sym_' + result.info.label + '.pdb')
    kw.timer.checkpoint('dump_pdbs')
 
    # make Dataset
@@ -178,7 +192,7 @@ def main():
    print(f'{" END RESULTS ":=^80}')
    kw.timer.checkpoint('dump_info')
 
-   print("DONE")
+   print("main_double_res DONE")
 
 def get_rotclouds(**kw):
    kw = rp.Bunch(kw)
@@ -295,5 +309,11 @@ def get_rotcloud_pairs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ, debug):
       # (lJ, lJ),  #
    ]
 
+def main():
+   main_double_res()
+
 if __name__ == '__main__':
    main()
+   print('#' * 80)
+   print(f'{"main() DONE":#^80}')
+   print('#' * 80)
