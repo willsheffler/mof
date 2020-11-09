@@ -15,7 +15,7 @@ def main():
    kw = mof.options.get_cli_args()
    kw.timer = rp.Timer().start()
 
-   if len(kw.inputs) is 0:
+   if len(kw.inputs) == 0:
       kw.inputs = ['mof/data/peptides/c.2.6_0001.pdb']
       print(f'{"":!^80}')
       print(f'{"no pdb list input, using test only_one":!^80}')
@@ -123,8 +123,14 @@ def main():
             checkpoint = f'{pdbpath}_{spacegroup.replace("","_")}_{rc1.amino_acid}_{rc2.amino_acid}'
             if checkpoint not in already_done:
                try:
-                  results.extend(
-                     mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw))
+                  r = mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw)
+                  results.extend(r)
+                  for i, result in enumerate(results):
+                     fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
+                     print('dumping', fname)
+                     result.info.fname = fname
+                     result.asym_pose_min.dump_pdb(fname)
+
                except Exception as e:
                   print(f'{"SOME EXCEPTION IN RUN":=^80}')
                   print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
@@ -233,66 +239,66 @@ def get_rotcloud_pairs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ, debug):
       return [(lE, dJ), (dD, dJ)]
 
    return [
-      # (dC, dC),  #
-      # (dC, lC),  #
-      # (lC, dC),  #
-      # (lC, lC),  #
-      (dC, dD),
-      (dC, lD),
-      (lC, dD),
-      (lC, lD),
-      (dC, dE),
-      (dC, lE),
-      (lC, dE),
-      (lC, lE),
-      (dC, dH),
-      (dC, lH),
-      (lC, dH),
-      (lC, lH),
-      (dC, dJ),
-      (dC, lJ),
-      (lC, dJ),
-      (lC, lJ),
-      # (dD, dD),  #
-      # (dD, lD),  #
-      # (lD, dD),  #
-      # (lD, lD),  #
-      # (dD, dE),  #
-      # (dD, lE),  #
-      # (lD, dE),  #
-      # (lD, lE),  #
-      (dD, dH),
-      (dD, lH),
-      (lD, dH),
-      (lD, lH),
-      (dD, dJ),
-      (dD, lJ),
-      (lD, dJ),
-      (lD, lJ),
-      # (dE, dE),  #
-      # (dE, lE),  #
-      # (lE, dE),  #
-      # (lE, lE),  #
-      (dE, dH),
-      (dE, lH),
-      (lE, dH),
-      (lE, lH),
-      (dE, dJ),
-      (dE, lJ),
-      (lE, dJ),
-      (lE, lJ),
-      # (dH, dH),  #
-      # (dH, lH),  #
-      # (lH, dH),  #
-      # (lH, lH),  #
-      # (dH, dJ),  #
-      # (dH, lJ),  #
-      # (lH, dJ),  #
-      # (lH, lJ),  #
-      # (dJ, dJ),  #
-      # (dJ, lJ),  #
-      # (lJ, dJ),  #
-      # (lJ, lJ),  #
+      (dC, dC),  #
+      (dC, lC),  #
+      (lC, dC),  #
+      (lC, lC),  #
+      # (dC, dD),
+      # (dC, lD),
+      # (lC, dD),
+      # (lC, lD),
+      # (dC, dE),
+      # (dC, lE),
+      # (lC, dE),
+      # (lC, lE),
+      # (dC, dH),
+      # (dC, lH),
+      # (lC, dH),
+      # (lC, lH),
+      # (dC, dJ),
+      # (dC, lJ),
+      # (lC, dJ),
+      # (lC, lJ),
+      (dD, dD),  #
+      (dD, lD),  #
+      (lD, dD),  #
+      (lD, lD),  #
+      (dD, dE),  #
+      (dD, lE),  #
+      (lD, dE),  #
+      (lD, lE),  #
+      # (dD, dH),
+      # (dD, lH),
+      # (lD, dH),
+      # (lD, lH),
+      # (dD, dJ),
+      # (dD, lJ),
+      # (lD, dJ),
+      # (lD, lJ),
+      (dE, dE),  #
+      (dE, lE),  #
+      (lE, dE),  #
+      (lE, lE),  #
+      # (dE, dH),
+      # (dE, lH),
+      # (lE, dH),
+      # (lE, lH),
+      # (dE, dJ),
+      # (dE, lJ),
+      # (lE, dJ),
+      # (lE, lJ),
+      (dH, dH),  #
+      (dH, lH),  #
+      (lH, dH),  #
+      (lH, lH),  #
+      (dH, dJ),  #
+      (dH, lJ),  #
+      (lH, dJ),  #
+      (lH, lJ),  #
+      (dJ, dJ),  #
+      (dJ, lJ),  #
+      (lJ, dJ),  #
+      (lJ, lJ),  #
    ]
 
 if __name__ == '__main__':

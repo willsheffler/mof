@@ -1,4 +1,4 @@
-name: mof
+name: mof2
 channels:
  - defaults
  - conda-forge
@@ -6,9 +6,10 @@ channels:
 dependencies:
  - python>=3.7
  - pyrosetta
- - numpy
+ - numpy=1.16.3
  - matplotlib
- - pandas
+ - pandas=0.24.2
+ - xarray=0.11.3 
  - pytest
  - pytest-faulthandler
  - ipython

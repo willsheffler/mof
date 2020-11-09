@@ -11,14 +11,14 @@ from pyrosetta import rosetta as rt, init as pyrosetta_init
 class XtalSearchSpec(object):
    """stuff needed for pepdide xtal search"""
    def __init__(
-         self,
-         spacegroup,
-         pept_axis,
-         pept_orig,
-         ligands,
-         sym_of_ligand,
-         max_dun_score,
-         **kw,
+      self,
+      spacegroup,
+      pept_axis,
+      pept_orig,
+      ligands,
+      sym_of_ligand,
+      max_dun_score,
+      **kw,
    ):
       super(XtalSearchSpec, self).__init__()
       kw = rp.Bunch(kw)
@@ -47,18 +47,18 @@ class XtalSearchSpec(object):
       # sfxn_minimize.set_weight(r.core.scoring.ScoreType.dihedral_constraint, 1.0)
 
 def xtal_search_two_residues(
-      search_spec,
-      pose,
-      rotcloud1base,
-      rotcloud2base,
-      err_tolerance,
-      dist_err_tolerance,
-      angle_err_tolerance,
-      min_dist_to_z_axis,
-      sym_axes_angle_tolerance,
-      angle_to_cart_err_ratio,
-      debug=False,
-      **kw,
+   search_spec,
+   pose,
+   rotcloud1base,
+   rotcloud2base,
+   err_tolerance,
+   dist_err_tolerance,
+   angle_err_tolerance,
+   min_dist_to_z_axis,
+   sym_axes_angle_tolerance,
+   angle_to_cart_err_ratio,
+   debug=False,
+   **kw,
 ):
    kw = rp.Bunch(kw)
    if not kw.timer: kw.timer = rp.Timer().start()
