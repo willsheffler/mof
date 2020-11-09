@@ -52,7 +52,7 @@ def main():
       # ['/home/sheffler/debug/mof/peptides/scaffolds/C3/12res/aligned/c.10.10_0001.pdb'])
 
    rotclouds = get_rotclouds(**kw)
-   rotcloud_pairs = get_rotcloud_pairs(**rotclouds, debug=kw.debug)
+   rotcloud_pairs = get_rotcloud_pairs(rotclouds, **kw)
    print('ALLOWED ROTAMER PAIRS')
    for a, b in rotcloud_pairs:
       print('   ', a.amino_acid, b.amino_acid)
@@ -227,72 +227,105 @@ def get_rotclouds(**kw):
 
    return dict(lC=lC, lD=lD, lE=lE, lH=lH, lJ=lJ, dC=dC, dD=dD, dE=dE, dH=dH, dJ=dJ)
 
-def get_rotcloud_pairs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ, debug):
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
+#################### NOW TEST WITH CLI SPECIFIED PAIRS
 
-   if debug:
-      return [(lE, dJ), (dD, dJ)]
+def get_rotcloud_pairs_from_options(rotclouds, **kw):
+   if kw.aa_pair_labels.upper() == 'ALL':
+      return rotcloud_pairs_all(rotclouds, **kw)
+   else:
+      result = list()
+      pairs_listed = kw.aa_pair_labels.upper().split()
+      pairs = izip(pairs_listed[::2], pairs_listed[1::2])
+      for lbl1, lbl2 in pairs:
+         result.append((rotclouds[lbl1], rotclouds[lbl2]))
+      return result
 
+def rotcloud_pairs_all(rotclouds, **kw):
    return [
-      # (dC, dC),  #
-      # (dC, lC),  #
-      # (lC, dC),  #
-      # (lC, lC),  #
-      (dC, dD),
-      (dC, lD),
-      (lC, dD),
-      (lC, lD),
-      (dC, dE),
-      (dC, lE),
-      (lC, dE),
-      (lC, lE),
-      (dC, dH),
-      (dC, lH),
-      (lC, dH),
-      (lC, lH),
-      (dC, dJ),
-      (dC, lJ),
-      (lC, dJ),
-      (lC, lJ),
-      # (dD, dD),  #
-      # (dD, lD),  #
-      # (lD, dD),  #
-      # (lD, lD),  #
-      # (dD, dE),  #
-      # (dD, lE),  #
-      # (lD, dE),  #
-      # (lD, lE),  #
-      (dD, dH),
-      (dD, lH),
-      (lD, dH),
-      (lD, lH),
-      (dD, dJ),
-      (dD, lJ),
-      (lD, dJ),
-      (lD, lJ),
-      # (dE, dE),  #
-      # (dE, lE),  #
-      # (lE, dE),  #
-      # (lE, lE),  #
-      (dE, dH),
-      (dE, lH),
-      (lE, dH),
-      (lE, lH),
-      (dE, dJ),
-      (dE, lJ),
-      (lE, dJ),
-      (lE, lJ),
-      # (dH, dH),  #
-      # (dH, lH),  #
-      # (lH, dH),  #
-      # (lH, lH),  #
-      # (dH, dJ),  #
-      # (dH, lJ),  #
-      # (lH, dJ),  #
-      # (lH, lJ),  #
-      # (dJ, dJ),  #
-      # (dJ, lJ),  #
-      # (lJ, dJ),  #
-      # (lJ, lJ),  #
+      (rotclouds['dC'], rotcloulds['dC']),  #
+      (rotclouds['dC'], rotcloulds['lC']),  #
+      (rotclouds['lC'], rotcloulds['dC']),  #
+      (rotclouds['lC'], rotcloulds['lC']),  #
+      (rotclouds['dC'], rotcloulds['dD']),
+      (rotclouds['dC'], rotcloulds['lD']),
+      (rotclouds['lC'], rotcloulds['dD']),
+      (rotclouds['lC'], rotcloulds['lD']),
+      (rotclouds['dC'], rotcloulds['dE']),
+      (rotclouds['dC'], rotcloulds['lE']),
+      (rotclouds['lC'], rotcloulds['dE']),
+      (rotclouds['lC'], rotcloulds['lE']),
+      (rotclouds['dC'], rotcloulds['dH']),
+      (rotclouds['dC'], rotcloulds['lH']),
+      (rotclouds['lC'], rotcloulds['dH']),
+      (rotclouds['lC'], rotcloulds['lH']),
+      (rotclouds['dC'], rotcloulds['dJ']),
+      (rotclouds['dC'], rotcloulds['lJ']),
+      (rotclouds['lC'], rotcloulds['dJ']),
+      (rotclouds['lC'], rotcloulds['lJ']),
+      (rotclouds['dD'], rotcloulds['dD']),  #
+      (rotclouds['dD'], rotcloulds['lD']),  #
+      (rotclouds['lD'], rotcloulds['dD']),  #
+      (rotclouds['lD'], rotcloulds['lD']),  #
+      (rotclouds['dD'], rotcloulds['dE']),  #
+      (rotclouds['dD'], rotcloulds['lE']),  #
+      (rotclouds['lD'], rotcloulds['dE']),  #
+      (rotclouds['lD'], rotcloulds['lE']),  #
+      (rotclouds['dD'], rotcloulds['dH']),
+      (rotclouds['dD'], rotcloulds['lH']),
+      (rotclouds['lD'], rotcloulds['dH']),
+      (rotclouds['lD'], rotcloulds['lH']),
+      (rotclouds['dD'], rotcloulds['dJ']),
+      (rotclouds['dD'], rotcloulds['lJ']),
+      (rotclouds['lD'], rotcloulds['dJ']),
+      (rotclouds['lD'], rotcloulds['lJ']),
+      (rotclouds['dE'], rotcloulds['dE']),  #
+      (rotclouds['dE'], rotcloulds['lE']),  #
+      (rotclouds['lE'], rotcloulds['dE']),  #
+      (rotclouds['lE'], rotcloulds['lE']),  #
+      (rotclouds['dE'], rotcloulds['dH']),
+      (rotclouds['dE'], rotcloulds['lH']),
+      (rotclouds['lE'], rotcloulds['dH']),
+      (rotclouds['lE'], rotcloulds['lH']),
+      (rotclouds['dE'], rotcloulds['dJ']),
+      (rotclouds['dE'], rotcloulds['lJ']),
+      (rotclouds['lE'], rotcloulds['dJ']),
+      (rotclouds['lE'], rotcloulds['lJ']),
+      (rotclouds['dH'], rotcloulds['dH']),  #
+      (rotclouds['dH'], rotcloulds['lH']),  #
+      (rotclouds['lH'], rotcloulds['dH']),  #
+      (rotclouds['lH'], rotcloulds['lH']),  #
+      (rotclouds['dH'], rotcloulds['dJ']),  #
+      (rotclouds['dH'], rotcloulds['lJ']),  #
+      (rotclouds['lH'], rotcloulds['dJ']),  #
+      (rotclouds['lH'], rotcloulds['lJ']),  #
+      (rotclouds['dJ'], rotcloulds['dJ']),  #
+      (rotclouds['dJ'], rotcloulds['lJ']),  #
+      (rotclouds['lJ'], rotcloulds['dJ']),  #
+      (rotclouds['lJ'], rotcloulds['lJ']),  #
    ]
 
 if __name__ == '__main__':
