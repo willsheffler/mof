@@ -57,7 +57,6 @@ def xtal_search_two_residues(
       min_dist_to_z_axis,
       sym_axes_angle_tolerance,
       angle_to_cart_err_ratio,
-      dont_replace_these_aas,
       debug=False,
       **kw,
 ):

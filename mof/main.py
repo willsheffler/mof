@@ -20,7 +20,6 @@ def main_double_res():
    kw = mof.options.get_cli_args()
    kw.timer = rp.Timer().start()
 
-   # crappy hacky test
    if len(kw.inputs) is 0:
       kw.inputs = ['mof/data/peptides/c.2.6_0001.pdb']
       print(f'{"":!^80}')
@@ -247,66 +246,66 @@ def get_rotcloud_pairs(lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ, debug):
       return [(lE, dJ), (dD, dJ)]
 
    return [
-      # (dC, dC),  #
-      # (dC, lC),  #
-      # (lC, dC),  #
-      # (lC, lC),  #
-      (dC, dD),
-      (dC, lD),
-      (lC, dD),
-      (lC, lD),
-      (dC, dE),
-      (dC, lE),
-      (lC, dE),
-      (lC, lE),
-      (dC, dH),
-      (dC, lH),
-      (lC, dH),
-      (lC, lH),
-      (dC, dJ),
-      (dC, lJ),
-      (lC, dJ),
-      (lC, lJ),
-      # (dD, dD),  #
-      # (dD, lD),  #
-      # (lD, dD),  #
-      # (lD, lD),  #
-      # (dD, dE),  #
-      # (dD, lE),  #
-      # (lD, dE),  #
-      # (lD, lE),  #
-      (dD, dH),
-      (dD, lH),
-      (lD, dH),
-      (lD, lH),
-      (dD, dJ),
-      (dD, lJ),
-      (lD, dJ),
-      (lD, lJ),
-      # (dE, dE),  #
-      # (dE, lE),  #
-      # (lE, dE),  #
-      # (lE, lE),  #
-      (dE, dH),
-      (dE, lH),
-      (lE, dH),
-      (lE, lH),
-      (dE, dJ),
-      (dE, lJ),
-      (lE, dJ),
-      (lE, lJ),
-      # (dH, dH),  #
-      # (dH, lH),  #
-      # (lH, dH),  #
-      # (lH, lH),  #
-      # (dH, dJ),  #
-      # (dH, lJ),  #
-      # (lH, dJ),  #
-      # (lH, lJ),  #
-      # (dJ, dJ),  #
-      # (dJ, lJ),  #
-      # (lJ, dJ),  #
-      # (lJ, lJ),  #
+      (dC, dC),  #
+      (dC, lC),  #
+      (lC, dC),  #
+      (lC, lC),  #
+      # (dC, dD),
+      # (dC, lD),
+      # (lC, dD),
+      # (lC, lD),
+      # (dC, dE),
+      # (dC, lE),
+      # (lC, dE),
+      # (lC, lE),
+      # (dC, dH),
+      # (dC, lH),
+      # (lC, dH),
+      # (lC, lH),
+      # (dC, dJ),
+      # (dC, lJ),
+      # (lC, dJ),
+      # (lC, lJ),
+      (dD, dD),  #
+      (dD, lD),  #
+      (lD, dD),  #
+      (lD, lD),  #
+      (dD, dE),  #
+      (dD, lE),  #
+      (lD, dE),  #
+      (lD, lE),  #
+      # (dD, dH),
+      # (dD, lH),
+      # (lD, dH),
+      # (lD, lH),
+      # (dD, dJ),
+      # (dD, lJ),
+      # (lD, dJ),
+      # (lD, lJ),
+      (dE, dE),  #
+      (dE, lE),  #
+      (lE, dE),  #
+      (lE, lE),  #
+      # (dE, dH),
+      # (dE, lH),
+      # (lE, dH),
+      # (lE, lH),
+      # (dE, dJ),
+      # (dE, lJ),
+      # (lE, dJ),
+      # (lE, lJ),
+      (dH, dH),  #
+      (dH, lH),  #
+      (lH, dH),  #
+      (lH, lH),  #
+      (dH, dJ),  #
+      (dH, lJ),  #
+      (lH, dJ),  #
+      (lH, lJ),  #
+      (dJ, dJ),  #
+      (dJ, lJ),  #
+      (lJ, dJ),  #
+      (lJ, lJ),  #
    ]
 
 def main():
