@@ -71,7 +71,7 @@ def xtal_search_two_residues(
 
    results = list()
 
-   dont_replace_these_aas = [spec.rts.name_map('CYS'), spec.rts.name_map('PRO')]
+   dont_replace_these_aas = [spec.rts.name_map(aa) for aa in dont_replace_these_aas]
 
    farep_orig = search_spec.sfxn_sterics(pose)
 

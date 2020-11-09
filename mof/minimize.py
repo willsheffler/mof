@@ -188,11 +188,12 @@ def minimize_mof_xtal(sfxn, xspec, pose, debug=False, **kw):
                znbonded.append(aid)
    if len(znbonded) != metalnbonds:
       print('WRONG NO OF LIGANDING ATOMS', len(znbonded))
-      for aid in znbonded:
-         print(pose.residue(aid.rsd()).name(), pose.residue(aid.rsd()).atom_name(aid.atomno()))
-         pose.dump_pdb('WRONG_NO_OF_LIGANDING_ATOMS.pdb')
-         return None, None
-      # raise ValueError(f'WRONG NO OF LIGANDING ATOMS {len(znbonded)}')
+      if debug:
+         for aid in znbonded:
+            print(pose.residue(aid.rsd()).name(), pose.residue(aid.rsd()).atom_name(aid.atomno()))
+            pose.dump_pdb('WRONG_NO_OF_LIGANDING_ATOMS.pdb')
+            return None, None
+         # raise ValueError(f'WRONG NO OF LIGANDING ATOMS {len(znbonded)}')
 
    # metal/lig distance constraints
    for i, aid in enumerate(znbonded):

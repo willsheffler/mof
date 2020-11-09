@@ -4,22 +4,9 @@ def default_cli_parser(parent=None, **kw):
    parser = parent if parent else argparse.ArgumentParser(allow_abbrev=False)
    addarg = rp.app.options.add_argument_unless_exists(parser)
    addarg("inputs", nargs="*", type=str, default=[], help='input structures')
-   addarg('--spacegroups', nargs='*', type=str, default=[], help='')
-   addarg('--max_bb_redundancy', type=float, default=0.1, help='')
-   addarg('--err_tolerance', type=float, default=2.0, help='')
-   addarg('--dist_err_tolerance', type=float, default=1.0, help='')
-   addarg('--angle_err_tolerance', type=float, default=15, help='')
-   addarg('--min_dist_to_z_axis', type=float, default=5.0, help='')
-   addarg('--sym_axes_angle_tolerance', type=float, default=5.0, help='')
-   addarg('--angle_to_cart_err_ratio', type=float, default=20.0, help='')
-   addarg('--max_dun_score', type=float, default=6.0, help='')
-   addarg('--max_pept_size', type=int, default=10, help='')
-   addarg('--clash_dis', type=float, default=3.3, help='')
-   addarg('--contact_dis', type=float, default=7.0, help='')
-   addarg('--min_contacts', type=float, default=0, help='')
-   addarg('--max_sym_score', type=float, default=100.0, help='')
 
    # yapf: disable
+
 
    addarg('--aa_pairs_labels', type=str, default='ALL',                      help="")
    addarg('--angle_err_tolerance', type=float, default=15,                   help='')
@@ -48,6 +35,7 @@ def default_cli_parser(parent=None, **kw):
    addarg('--cst_sd_metal_olap', type=float, default=0.01,                   help='')
    addarg('--debug', action="store_true", default=False,                     help='')
    addarg('--dist_err_tolerance', type=float, default=1.0,                   help='')
+   addarg("--dont_replace_these_aas", nargs="*", type=str, default=['PRO'],  help='AAs which should not be changed')
    addarg('--err_tolerance', type=float, default=2.0,                        help='')
    addarg('--max_2res_score', type=float, default=10.0,                      help='')
    addarg('--max_bb_redundancy', type=float, default=0.1,                    help='')
