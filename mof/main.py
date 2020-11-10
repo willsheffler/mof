@@ -45,7 +45,7 @@ def main_double_res():
       kw.max_cell_size = 50
       kw.max_solv_frac = 0.80
       kw.debug = True
-      kw.continue_from_checkpoints = False
+      # kw.continue_from_checkpoints = False
 
       kw.spacegroups = ['i213', 'p4132', 'p4332']
       # kw.spacegroups = ['p4132', 'p4332']
@@ -60,7 +60,7 @@ def main_double_res():
    os.makedirs(os.path.dirname(kw.output_prefix), exist_ok=True)
 
    rotclouds = get_rotclouds(**kw)
-   rotcloud_pairs = get_rotcloud_pairs(rotclouds, **kw)
+   rotcloud_pairs = get_rotcloud_pairs_from_options(rotclouds, **kw)
    print('ALLOWED ROTAMER PAIRS')
    for a, b in rotcloud_pairs:
       print('   ', a.amino_acid, b.amino_acid)
@@ -75,37 +75,37 @@ def main_double_res():
    # parameters not to be considered as unique for checkpointing
    tohash = kw.sub(
       timer=None,
-      continue_from_checkpoints=None,
+      # continue_from_checkpoints=None,
       debug=None,
       rotcloud_pairs=str([(a.amino_acid, b.amino_acid) for a, b in rotcloud_pairs]),
    )
 
    # TODO: CHECKPOINTING .info file!!!!!!!
 
-   kwhash = str(mof.util.hash_str_to_int(str(tohash)))
-   checkpoint_file = f'{kw.output_prefix}_checkpoints/{kwhash}.checkpoint'
-   os.makedirs(os.path.dirname(checkpoint_file), exist_ok=True)
+   # kwhash = str(mof.util.hash_str_to_int(str(tohash)))
+   # checkpoint_file = f'{kw.output_prefix}_checkpoints/{kwhash}.checkpoint'
+   # os.makedirs(os.path.dirname(checkpoint_file), exist_ok=True)
 
    already_done, ntries = set(), 1
-   if kw.continue_from_checkpoints:
-      if os.path.exists(checkpoint_file):
-         with open(checkpoint_file) as inp:
-            seen = [line.strip() for line in inp]
-            if seen: ntries = int(seen[0]) + 1
-            already_done.update(seen[1:])
-         if already_done:
-            with open(checkpoint_file, 'w') as out:
-               out.write(str(ntries) + '\n')
-               for checkpoint in already_done:
-                  out.write(checkpoint + '\n')
-      else:
-         with open(checkpoint_file, 'w') as out:
-            out.write(str(ntries) + '\n')
+   # if kw.continue_from_checkpoints:
+   #    if os.path.exists(checkpoint_file):
+   #       with open(checkpoint_file) as inp:
+   #          seen = [line.strip() for line in inp]
+   #          if seen: ntries = int(seen[0]) + 1
+   #          already_done.update(seen[1:])
+   #       if already_done:
+   #          with open(checkpoint_file, 'w') as out:
+   #             out.write(str(ntries) + '\n')
+   #             for checkpoint in already_done:
+   #                out.write(checkpoint + '\n')
+   #    else:
+   #       with open(checkpoint_file, 'w') as out:
+   #          out.write(str(ntries) + '\n')
    pdb_gen = _gen_pdbs(kw.inputs, already_done)
    prepped_pdb_gen = mof.util.prep_poses(pdb_gen)
 
-   progress_total = len(kw.inputs) * len(kw.spacegroups) * len(rotcloud_pairs)
-   progress = len(already_done)
+   # progress_total = len(kw.inputs) * len(kw.spacegroups) * len(rotcloud_pairs)
+   # progress = len(already_done)
 
    results = list()
    kw.timer.checkpoint('main')
@@ -128,28 +128,28 @@ def main_double_res():
             **kw,
          )
          for rc1, rc2 in rotcloud_pairs:
-            checkpoint = f'{pdbpath}_{spacegroup.replace("","_")}_{rc1.amino_acid}_{rc2.amino_acid}'
-            if checkpoint not in already_done:
-               try:
-                  r = mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw)
-                  results.extend(r)
-                  for i, result in enumerate(results):
-                     fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
-                     print('dumping', fname)
-                     result.info.fname = fname
-                     result.asym_pose_min.dump_pdb(fname)
+            # checkpoint = f'{pdbpath}_{spacegroup.replace("","_")}_{rc1.amino_acid}_{rc2.amino_acid}'
+            # if checkpoint not in already_done:
+            try:
+               r = mof.xtal_search.xtal_search_two_residues(search_spec, pose, rc1, rc2, **kw)
+               results.extend(r)
+               for i, result in enumerate(results):
+                  fname = kw.output_prefix + 'asym_' + result.info.label + '.pdb'
+                  print('dumping', fname)
+                  result.info.fname = fname
+                  result.asym_pose_min.dump_pdb(fname)
 
-               except Exception as e:
-                  print(f'{"SOME EXCEPTION IN RUN":=^80}')
-                  print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
-                  print(type(e))
-                  print(repr(e))
-                  print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
-                  success = False
-               with open(checkpoint_file, 'a') as out:
-                  out.write(checkpoint + '\n')
-         with open(checkpoint_file, 'a') as out:
-            out.write(f'{pdbpath}\n')
+            except Exception as e:
+               print(f'{"SOME EXCEPTION IN RUN":=^80}')
+               print(f'{f"AAs: {rc1.amino_acid} {rc2.amino_acid}":=^80}')
+               print(type(e))
+               print(repr(e))
+               print(f'{"TRY TO DUMP PARTIAL RESULTS":=^80}')
+               success = False
+            # with open(checkpoint_file, 'a') as out:
+            #    out.write(checkpoint + '\n')
+         # with open(checkpoint_file, 'a') as out:
+         #   out.write(f'{pdbpath}\n')
 
       if not results:
          print(kw.timer)
@@ -266,79 +266,99 @@ def get_rotclouds(**kw):
 #################### NOW TEST WITH CLI SPECIFIED PAIRS
 #################### NOW TEST WITH CLI SPECIFIED PAIRS
 
+_lblmap = dict(
+   CYS='lC',
+   DCYS='dC',
+   ASP='lD',
+   DASP='dD',
+   GLU='lE',
+   DGLU='dE',
+   HIS='lH',
+   DHIS='dH',
+   HISD='lJ',
+   DHISD='dJ',
+)
+
 def get_rotcloud_pairs_from_options(rotclouds, **kw):
-   if kw.aa_pair_labels.upper() == 'ALL':
+   kw = rp.Bunch(kw)
+   if len(kw.aa_pair_labels) is 1 and kw.aa_pair_labels[0].upper() == 'ALL':
       return rotcloud_pairs_all(rotclouds, **kw)
    else:
       result = list()
-      pairs_listed = kw.aa_pair_labels.upper().split()
-      pairs = izip(pairs_listed[::2], pairs_listed[1::2])
+      pairs_listed = [_.upper() for _ in kw.aa_pair_labels]
+      print('pairs_listed', pairs_listed)
+      pairs = zip(pairs_listed[::2], pairs_listed[1::2])
+
       for lbl1, lbl2 in pairs:
-         result.append((rotclouds[lbl1], rotclouds[lbl2]))
+         print('use AA pair', lbl1, lbl2)
+         try:
+            result.append((rotclouds[_lblmap[lbl1.upper()]], rotclouds[_lblmap[lbl2.upper()]]))
+         except KeyError as e:
+            raise ValueError('bad aa label "%s" and/or "%s"' % (lbl1, lbl2)) from e
       return result
 
 def rotcloud_pairs_all(rotclouds, **kw):
    return [
-      (rotclouds['dC'], rotcloulds['dC']),  #
-      (rotclouds['dC'], rotcloulds['lC']),  #
-      (rotclouds['lC'], rotcloulds['dC']),  #
-      (rotclouds['lC'], rotcloulds['lC']),  #
-      (rotclouds['dC'], rotcloulds['dD']),
-      (rotclouds['dC'], rotcloulds['lD']),
-      (rotclouds['lC'], rotcloulds['dD']),
-      (rotclouds['lC'], rotcloulds['lD']),
-      (rotclouds['dC'], rotcloulds['dE']),
-      (rotclouds['dC'], rotcloulds['lE']),
-      (rotclouds['lC'], rotcloulds['dE']),
-      (rotclouds['lC'], rotcloulds['lE']),
-      (rotclouds['dC'], rotcloulds['dH']),
-      (rotclouds['dC'], rotcloulds['lH']),
-      (rotclouds['lC'], rotcloulds['dH']),
-      (rotclouds['lC'], rotcloulds['lH']),
-      (rotclouds['dC'], rotcloulds['dJ']),
-      (rotclouds['dC'], rotcloulds['lJ']),
-      (rotclouds['lC'], rotcloulds['dJ']),
-      (rotclouds['lC'], rotcloulds['lJ']),
-      (rotclouds['dD'], rotcloulds['dD']),  #
-      (rotclouds['dD'], rotcloulds['lD']),  #
-      (rotclouds['lD'], rotcloulds['dD']),  #
-      (rotclouds['lD'], rotcloulds['lD']),  #
-      (rotclouds['dD'], rotcloulds['dE']),  #
-      (rotclouds['dD'], rotcloulds['lE']),  #
-      (rotclouds['lD'], rotcloulds['dE']),  #
-      (rotclouds['lD'], rotcloulds['lE']),  #
-      (rotclouds['dD'], rotcloulds['dH']),
-      (rotclouds['dD'], rotcloulds['lH']),
-      (rotclouds['lD'], rotcloulds['dH']),
-      (rotclouds['lD'], rotcloulds['lH']),
-      (rotclouds['dD'], rotcloulds['dJ']),
-      (rotclouds['dD'], rotcloulds['lJ']),
-      (rotclouds['lD'], rotcloulds['dJ']),
-      (rotclouds['lD'], rotcloulds['lJ']),
-      (rotclouds['dE'], rotcloulds['dE']),  #
-      (rotclouds['dE'], rotcloulds['lE']),  #
-      (rotclouds['lE'], rotcloulds['dE']),  #
-      (rotclouds['lE'], rotcloulds['lE']),  #
-      (rotclouds['dE'], rotcloulds['dH']),
-      (rotclouds['dE'], rotcloulds['lH']),
-      (rotclouds['lE'], rotcloulds['dH']),
-      (rotclouds['lE'], rotcloulds['lH']),
-      (rotclouds['dE'], rotcloulds['dJ']),
-      (rotclouds['dE'], rotcloulds['lJ']),
-      (rotclouds['lE'], rotcloulds['dJ']),
-      (rotclouds['lE'], rotcloulds['lJ']),
-      (rotclouds['dH'], rotcloulds['dH']),  #
-      (rotclouds['dH'], rotcloulds['lH']),  #
-      (rotclouds['lH'], rotcloulds['dH']),  #
-      (rotclouds['lH'], rotcloulds['lH']),  #
-      (rotclouds['dH'], rotcloulds['dJ']),  #
-      (rotclouds['dH'], rotcloulds['lJ']),  #
-      (rotclouds['lH'], rotcloulds['dJ']),  #
-      (rotclouds['lH'], rotcloulds['lJ']),  #
-      (rotclouds['dJ'], rotcloulds['dJ']),  #
-      (rotclouds['dJ'], rotcloulds['lJ']),  #
-      (rotclouds['lJ'], rotcloulds['dJ']),  #
-      (rotclouds['lJ'], rotcloulds['lJ']),  #
+      (rotclouds['dC'], rotclouds['dC']),  #
+      (rotclouds['dC'], rotclouds['lC']),  #
+      (rotclouds['lC'], rotclouds['dC']),  #
+      (rotclouds['lC'], rotclouds['lC']),  #
+      (rotclouds['dC'], rotclouds['dD']),
+      (rotclouds['dC'], rotclouds['lD']),
+      (rotclouds['lC'], rotclouds['dD']),
+      (rotclouds['lC'], rotclouds['lD']),
+      (rotclouds['dC'], rotclouds['dE']),
+      (rotclouds['dC'], rotclouds['lE']),
+      (rotclouds['lC'], rotclouds['dE']),
+      (rotclouds['lC'], rotclouds['lE']),
+      (rotclouds['dC'], rotclouds['dH']),
+      (rotclouds['dC'], rotclouds['lH']),
+      (rotclouds['lC'], rotclouds['dH']),
+      (rotclouds['lC'], rotclouds['lH']),
+      (rotclouds['dC'], rotclouds['dJ']),
+      (rotclouds['dC'], rotclouds['lJ']),
+      (rotclouds['lC'], rotclouds['dJ']),
+      (rotclouds['lC'], rotclouds['lJ']),
+      (rotclouds['dD'], rotclouds['dD']),  #
+      (rotclouds['dD'], rotclouds['lD']),  #
+      (rotclouds['lD'], rotclouds['dD']),  #
+      (rotclouds['lD'], rotclouds['lD']),  #
+      (rotclouds['dD'], rotclouds['dE']),  #
+      (rotclouds['dD'], rotclouds['lE']),  #
+      (rotclouds['lD'], rotclouds['dE']),  #
+      (rotclouds['lD'], rotclouds['lE']),  #
+      (rotclouds['dD'], rotclouds['dH']),
+      (rotclouds['dD'], rotclouds['lH']),
+      (rotclouds['lD'], rotclouds['dH']),
+      (rotclouds['lD'], rotclouds['lH']),
+      (rotclouds['dD'], rotclouds['dJ']),
+      (rotclouds['dD'], rotclouds['lJ']),
+      (rotclouds['lD'], rotclouds['dJ']),
+      (rotclouds['lD'], rotclouds['lJ']),
+      (rotclouds['dE'], rotclouds['dE']),  #
+      (rotclouds['dE'], rotclouds['lE']),  #
+      (rotclouds['lE'], rotclouds['dE']),  #
+      (rotclouds['lE'], rotclouds['lE']),  #
+      (rotclouds['dE'], rotclouds['dH']),
+      (rotclouds['dE'], rotclouds['lH']),
+      (rotclouds['lE'], rotclouds['dH']),
+      (rotclouds['lE'], rotclouds['lH']),
+      (rotclouds['dE'], rotclouds['dJ']),
+      (rotclouds['dE'], rotclouds['lJ']),
+      (rotclouds['lE'], rotclouds['dJ']),
+      (rotclouds['lE'], rotclouds['lJ']),
+      (rotclouds['dH'], rotclouds['dH']),  #
+      (rotclouds['dH'], rotclouds['lH']),  #
+      (rotclouds['lH'], rotclouds['dH']),  #
+      (rotclouds['lH'], rotclouds['lH']),  #
+      (rotclouds['dH'], rotclouds['dJ']),  #
+      (rotclouds['dH'], rotclouds['lJ']),  #
+      (rotclouds['lH'], rotclouds['dJ']),  #
+      (rotclouds['lH'], rotclouds['lJ']),  #
+      (rotclouds['dJ'], rotclouds['dJ']),  #
+      (rotclouds['dJ'], rotclouds['lJ']),  #
+      (rotclouds['lJ'], rotclouds['dJ']),  #
+      (rotclouds['lJ'], rotclouds['lJ']),  #
    ]
 
 def main():

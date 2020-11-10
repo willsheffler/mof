@@ -21,7 +21,7 @@
       },
       {
          "name": "main.py",
-         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py &> sublime_build.log"
+         "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py --aa_pair_labels ALL &> sublime_build.log"
       },
       {
          "name": "main.py pymol",
