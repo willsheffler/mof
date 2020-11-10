@@ -3,11 +3,12 @@ import sys, argparse, rpxdock as rp
 def default_cli_parser(parent=None, **kw):
    parser = parent if parent else argparse.ArgumentParser(allow_abbrev=False)
    addarg = rp.app.options.add_argument_unless_exists(parser)
-   addarg("inputs", nargs="*", type=str, default=[], help='input structures')
 
    # yapf: disable
 
-   addarg('--aa_pair_labels', type=str, nargs='*',              default='ALL',               help='give in pairs (--aa_pair_labels A B C D yeilds A-B and C-B pairs) choices: CYS DCYS ASP DASP GLU DGLU HIS DHIS HISD DHISD')
+   addarg("inputs", nargs="*", type=str, default=[], help='input structures')
+
+   addarg('--aa_pair_labels', type=str, nargs='*',              default=['ALL'],             help='give in pairs (--aa_pair_labels A B C D yeilds A-B and C-B pairs) choices: CYS DCYS ASP DASP GLU DGLU HIS DHIS HISD DHISD')
    addarg('--angle_err_tolerance', type=float,                  default=15,                  help='max allowed angular deviation from ideal metal binding. applied early, so ok to be generous')
    addarg('--angle_to_cart_err_ratio', type=float,              default=20.0,                help='lever distance to equate anglur and cartesian errors. probably no reason to change, unless you know why')
    addarg('--chiresl_asp1', type=float,                         default=8.0,                 help='resolution of scanning for asp chi1')
