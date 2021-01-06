@@ -8,6 +8,8 @@ def default_cli_parser(parent=None, **kw):
 
    addarg("inputs", nargs="*", type=str, default=[], help='input structures')
 
+   addarg('--aa_labels', type=str, nargs='*',                   default='CYS DCYS ASP DASP GLU DGLU HIS DHIS HISD DHISD'.split(),
+          help='choices: CYS DCYS ASP DASP GLU DGLU HIS DHIS HISD DHISD',)
    addarg('--aa_pair_labels', type=str, nargs='*',              default=['ALL'],             help='give in pairs (--aa_pair_labels A B C D yeilds A-B and C-B pairs) choices: CYS DCYS ASP DASP GLU DGLU HIS DHIS HISD DHISD')
    addarg('--angle_err_tolerance', type=float,                  default=15,                  help='max allowed angular deviation from ideal metal binding. applied early, so ok to be generous')
    addarg('--angle_to_cart_err_ratio', type=float,              default=20.0,                help='lever distance to equate anglur and cartesian errors. probably no reason to change, unless you know why')

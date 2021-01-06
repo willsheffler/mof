@@ -1,4 +1,4 @@
-import numpy as np, rpxdock as rp, copy
+import numpy as np, rpxdock as rp, copy, os, mof
 from mof import util
 from mof.pyrosetta_init import make_1res_pose, get_sfxn, rVec, xform_pose
 from abc import ABC, abstractmethod
@@ -9,6 +9,74 @@ how to handle multiple metal binding sides not covered by rotamers, as in GLU
 
 how to hangle CYS chi2, which is based on HG being free-ish to rotate
 """
+
+def get_rotclouds(**kw):
+   kw = rp.Bunch(kw)
+
+   chiresl_asp1 = kw.chiresl_asp1 / kw.scale_number_of_rotamers
+   chiresl_asp2 = kw.chiresl_asp2 / kw.scale_number_of_rotamers
+   chiresl_cys1 = kw.chiresl_cys1 / kw.scale_number_of_rotamers
+   chiresl_cys2 = kw.chiresl_cys2 / kw.scale_number_of_rotamers
+   chiresl_his1 = kw.chiresl_his1 / kw.scale_number_of_rotamers
+   chiresl_his2 = kw.chiresl_his2 / kw.scale_number_of_rotamers
+   chiresl_glu1 = kw.chiresl_glu1 / kw.scale_number_of_rotamers
+   chiresl_glu2 = kw.chiresl_glu2 / kw.scale_number_of_rotamers
+   chiresl_glu3 = kw.chiresl_glu3 / kw.scale_number_of_rotamers
+
+   os.makedirs(kw.rotcloud_cache, exist_ok=True)
+
+   params = (kw.chiresl_his1, kw.chiresl_his2, kw.chiresl_cys1, kw.chiresl_cys2, kw.chiresl_asp1,
+             kw.chiresl_asp2, kw.chiresl_glu1, kw.chiresl_glu2, kw.chiresl_glu3, kw.maxdun_cys,
+             kw.maxdun_asp, kw.maxdun_glu, kw.maxdun_his, kw.scale_number_of_rotamers)
+   ident = mof.util.hash_str_to_int(str(params))
+
+   cache_file = kw.rotcloud_cache + '/%i.pickle' % ident
+   if os.path.exists(cache_file):
+      lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = rp.util.load(cache_file)
+   else:
+      print('building rotamer clouds')
+      chi_range = lambda resl: np.arange(-180, 180, resl)
+      chi_asp = [chi_range(x) for x in (chiresl_asp1, chiresl_asp2)]
+      chi_cys = [chi_range(x) for x in (chiresl_cys1, chiresl_cys2)]
+      chi_his = [chi_range(x) for x in (chiresl_his1, chiresl_his2)]
+      chi_glu = [chi_range(x) for x in (chiresl_glu1, chiresl_glu2, chiresl_glu3)]
+
+      # lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=2.0)
+      # lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=4.0)
+      # lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0)
+      # lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=4.0)
+      # lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=3.0)
+      # dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=2.0)
+      # dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=4.0)
+      # dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0)
+      # dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=4.0)
+      # dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=3.0)
+
+      # lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0)
+      # lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0)
+      # lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0)
+      # lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0)
+      # lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0)
+      # dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0)
+      # dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0)
+      # dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0)
+      # dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0)
+      # dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0)
+
+      lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
+      lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
+      lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
+      lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
+      dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
+      dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
+      dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+
+      rp.util.dump([lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ], cache_file)
+
+   return dict(lC=lC, lD=lD, lE=lE, lH=lH, lJ=lJ, dC=dC, dD=dD, dE=dE, dH=dH, dJ=dJ)
 
 class RotamerCloud(ABC):
    """holds transforms for a set of rotamers positioned at the origin"""

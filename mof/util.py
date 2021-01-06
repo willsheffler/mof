@@ -216,6 +216,26 @@ def mutate_two_res(pose, ires1in, aa1, chis1, ires2in, aa2, chis2, symnum=1):
       # pose2.dump_pdb('after.pdb')
    return pose2
 
+def mutate_one_res(pose, ires1in, aa1, chis1, symnum=1):
+   pose2 = pose.clone()
+   assert len(pose2.residues) % symnum == 0
+   nres = len(pose2.residues) // symnum
+   for isym in range(symnum):
+      ires1 = (ires1in - 1) % nres + 1 + isym * nres
+      mut = rosetta.protocols.simple_moves.MutateResidue()
+      mut.set_preserve_atom_coords(False)
+      mut.set_res_name(aa1)
+      mut.set_target(ires1)
+      mut.apply(pose2)
+      for ichi, chi in enumerate(chis1):
+         pose2.set_chi(ichi + 1, ires1, chi)
+      for ir in range(1, len(pose2.residues) + 1):
+         pose2.set_xyz(AtomID(pose2.residue(ir).atom_index('O'), ir), pose.residue(ir).xyz('O'))
+         if pose2.residue(ir).name3() != 'PRO':
+            fix_bb_h(pose2, ir)
+      # pose2.dump_pdb('after.pdb')
+   return pose2
+
 def mut_to_ligand(pose, residue, ligands, sym_of_ligand, debug=False):
    # For a given pose, attempts to mutate each residue (one at a time) to a new residue from my list of ligands
    # Returns a dictionary, LIG_poses, that contains all of the new poses with mutated residue positions
@@ -224,14 +244,17 @@ def mut_to_ligand(pose, residue, ligands, sym_of_ligand, debug=False):
    LIG_poses = []
    int_residues = []
    lig_sym = []
+
    for ilig in range(1, len(ligands), 2):
       ligand = ligands[ilig]
+
       LIG_pose = pose.clone()
       if LIG_pose.phi(residue) > 0:
          mut = rosetta.protocols.simple_moves.MutateResidue()
          mut.set_res_name(ligand)
          mut.set_target(residue)
          mut.set_preserve_atom_coords(False)
+         # print(ligand, residue)
          mut.apply(LIG_pose)
       else:
          mut = rosetta.protocols.simple_moves.MutateResidue()
@@ -239,6 +262,7 @@ def mut_to_ligand(pose, residue, ligands, sym_of_ligand, debug=False):
          mut.set_target(residue)
          mut.set_preserve_atom_coords(False)
          mut.apply(LIG_pose)
+
       minimize(LIG_pose, sfxn)
       LIG_poses.append(LIG_pose)
       int_residues.append(

@@ -1,6 +1,9 @@
 import sys, numpy as np, os, pickle, mof, xarray as xr, glob
 import rpxdock as rp
 from mof.pyrosetta_init import rosetta
+from mof.c3d2 import main_loop_c3d2
+from mof.rotamer_cloud import get_rotclouds
+
 # from concurrent.futures import ProcessPoolExecutor
 from hashlib import sha1
 
@@ -12,8 +15,8 @@ def _gen_pdbs(pdblist, already_done=set()):
          print(f"\n{f'!!! ALREADY COMPLETE: {path} !!!':!^80}\n")
 
 def main_single_res():
-   kw = mof.options.get_cli_args()
-   kw.timer = rp.Timer().start()
+   from mof._old_1res import main_1res
+   main_1res()
 
 def main_double_res():
 
@@ -79,10 +82,8 @@ def main_double_res():
       debug=None,
       rotcloud_pairs=str([(a.amino_acid, b.amino_acid) for a, b in rotcloud_pairs]),
    )
-
-   # TODO: CHECKPOINTING .info file!!!!!!!
-
-   # kwhash = str(mof.util.hash_str_to_int(str(tohash)))
+   # # TODO: CHECKPOINTING .info file!!!!!!!
+   kwhash = str(mof.util.hash_str_to_int(str(tohash)))
    # checkpoint_file = f'{kw.output_prefix}_checkpoints/{kwhash}.checkpoint'
    # os.makedirs(os.path.dirname(checkpoint_file), exist_ok=True)
 
@@ -193,79 +194,6 @@ def main_double_res():
 
    print("main_double_res DONE")
 
-def get_rotclouds(**kw):
-   kw = rp.Bunch(kw)
-
-   chiresl_asp1 = kw.chiresl_asp1 / kw.scale_number_of_rotamers
-   chiresl_asp2 = kw.chiresl_asp2 / kw.scale_number_of_rotamers
-   chiresl_cys1 = kw.chiresl_cys1 / kw.scale_number_of_rotamers
-   chiresl_cys2 = kw.chiresl_cys2 / kw.scale_number_of_rotamers
-   chiresl_his1 = kw.chiresl_his1 / kw.scale_number_of_rotamers
-   chiresl_his2 = kw.chiresl_his2 / kw.scale_number_of_rotamers
-   chiresl_glu1 = kw.chiresl_glu1 / kw.scale_number_of_rotamers
-   chiresl_glu2 = kw.chiresl_glu2 / kw.scale_number_of_rotamers
-   chiresl_glu3 = kw.chiresl_glu3 / kw.scale_number_of_rotamers
-
-   os.makedirs(kw.rotcloud_cache, exist_ok=True)
-
-   params = (kw.chiresl_his1, kw.chiresl_his2, kw.chiresl_cys1, kw.chiresl_cys2, kw.chiresl_asp1,
-             kw.chiresl_asp2, kw.chiresl_glu1, kw.chiresl_glu2, kw.chiresl_glu3, kw.maxdun_cys,
-             kw.maxdun_asp, kw.maxdun_glu, kw.maxdun_his)
-   ident = mof.util.hash_str_to_int(str(params))
-
-   cache_file = kw.rotcloud_cache + '/%i.pickle' % ident
-   if os.path.exists(cache_file):
-      lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = rp.util.load(cache_file)
-   else:
-      print('building rotamer clouds')
-      chi_range = lambda resl: np.arange(-180, 180, resl)
-      chi_asp = [chi_range(x) for x in (chiresl_asp1, chiresl_asp2)]
-      chi_cys = [chi_range(x) for x in (chiresl_cys1, chiresl_cys2)]
-      chi_his = [chi_range(x) for x in (chiresl_his1, chiresl_his2)]
-      chi_glu = [chi_range(x) for x in (chiresl_glu1, chiresl_glu2, chiresl_glu3)]
-
-      lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0)
-      lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0)
-      lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0)
-      lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0)
-      lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0)
-
-      dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0)
-      dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0)
-      dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0)
-      dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0)
-      dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0)
-
-      rp.util.dump([lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ], cache_file)
-
-   return dict(lC=lC, lD=lD, lE=lE, lH=lH, lJ=lJ, dC=dC, dD=dD, dE=dE, dH=dH, dJ=dJ)
-
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-#################### NOW TEST WITH CLI SPECIFIED PAIRS
-
 _lblmap = dict(
    CYS='lC',
    DCYS='dC',
@@ -362,7 +290,12 @@ def rotcloud_pairs_all(rotclouds, **kw):
    ]
 
 def main():
-   main_double_res()
+   # import rpxdock as rp, numpy as np
+   # x = rp.geom.expand_xforms([np.eye(4), np.eye(4)], 7, 50.0)
+   # print(x)
+   # assert 0
+   # main_single_res()
+   main_loop_c3d2()
 
 if __name__ == '__main__':
    main()

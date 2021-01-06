@@ -14,7 +14,8 @@ from pyrosetta.rosetta.core.scoring import ScoreType
 
 # pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta'
 
-pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta_cart'
+# pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta_cart'
+pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} /home/sheffler/src/mof/mof/data/motifs/HZ4.params -preserve_crystinfo -renumber_pdb -beta_cart'
 
 # pyrosetta_flags = f'-mute all -extra_res_fa {data.params.VZN} -preserve_crystinfo -renumber_pdb -beta -output_virtual'
 
