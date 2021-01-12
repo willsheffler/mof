@@ -1,10 +1,11 @@
 from mof.pyrosetta_init import rosetta as r
 aavol = dict(
-   A=180 * 2.333,
-   D=110 * 2.333,
-   C=110 * 2.333,
-   E=150 * 2.333,
-   H=150 * 2.333,
+   A=180 * 2.0,
+   D=110 * 2.0,
+   C=110 * 2.0,
+   E=150 * 2.0,
+   G=100 * 2.0,
+   H=150 * 2.0,
    Z=0,
 )
 
@@ -26,6 +27,6 @@ def approx_solvent_fraction(pose, xspec, celldim=None):
    # print(pose.pdb_info().crystinfo().A())
    # print(seq, vol, celldim, cellvol)
    # assert 0
-   solvfrac = max(0, 1.0 - vol / cellvol)
+   solvfrac = max(0.0, 1.0 - vol / cellvol)
 
    return solvfrac

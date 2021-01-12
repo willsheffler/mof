@@ -217,16 +217,22 @@ def mutate_two_res(pose, ires1in, aa1, chis1, ires2in, aa2, chis2, symnum=1):
    return pose2
 
 def mutate_one_res(pose, ires1in, aa1, chis1, symnum=1):
+   # print('mutate_one_res')
    pose2 = pose.clone()
    assert len(pose2.residues) % symnum == 0
    nres = len(pose2.residues) // symnum
-   for isym in range(symnum):
+   # for isym in range(symnum):
+   for isym in [0]:  #range(symnum):
       ires1 = (ires1in - 1) % nres + 1 + isym * nres
       mut = rosetta.protocols.simple_moves.MutateResidue()
       mut.set_preserve_atom_coords(False)
       mut.set_res_name(aa1)
       mut.set_target(ires1)
+      # print('mutate_one_res', ires1, aa1, pose2.size(), len(pose2.residues))
+      sys.stdout.flush()
       mut.apply(pose2)
+      # print('mutate_one_res', 232)
+      sys.stdout.flush()
       for ichi, chi in enumerate(chis1):
          pose2.set_chi(ichi + 1, ires1, chi)
       for ir in range(1, len(pose2.residues) + 1):
