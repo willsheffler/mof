@@ -34,6 +34,9 @@ def main_loop_c3d2():
       shutil.rmtree(os.path.dirname(kw.output_prefix))
    os.makedirs(os.path.dirname(kw.output_prefix) + '/clustered', exist_ok=True)
 
+   if not kw.spacegroups:
+      print('NO spacegroups specified (e.g. --spacegroups P23)')
+      return
    # for k, v in kw.items():
    #    try:
    #       print(k, v)
@@ -60,11 +63,11 @@ def main_loop_c3d2():
 
       pose = rosetta.core.import_pose.pose_from_file(pdbpath)
       rpxbody = rp.Body(pose)
+
       print()
-      print(f'{" %i of %i "%(ipdbpath, len(kw.inputs)):#^80}')
+      print(f'{" %i of %i "%(ipdbpath+1 , len(kw.inputs)):#^80}')
       print(pdbpath)
       print(f'{"":#^80}')
-      print()
 
       for spacegroup in kw.spacegroups:
          search_spec = mof.xtal_search.XtalSearchSpec(
@@ -299,6 +302,8 @@ def main_loop_c3d2():
                         print('     ', xspec.spacegroup, pdb_name, aa, 'Fail on solv_frac',
                               solv_frac)
                         continue
+                        print('     ', xspec.spacegroup, pdb_name, aa, 'Win  on solv_frac',
+                              solv_frac)
 
                      #
                      set_cell_params(xtal_pose, xspec, cell_spacing)
@@ -318,8 +323,8 @@ def main_loop_c3d2():
                      print(f'{len(results):5} {iaa:3} {ires:3} {irot:5} {ibonddof:2} ang axisd',
                            f'{hm.angle_degrees(symaxisd, xspec.axis2d):7.3}',
                            f'{hm.angle_degrees(symaxisd2, xspec.axis2d):7.3}',
-                           f'{cell_spacing:7.3}', f'farep {mininfo.score_fa_rep:9.3}',
-                           f'{solv_frac:5.3}')
+                           f'{cell_spacing:7.3}', f'farep {mininfo.score_fa_rep:7.3}',
+                           f'solv {solv_frac:5.3}')
 
                      # for st, score in _bestscores.items():
                      # if score > 1.0: print('best', st, score)
@@ -328,7 +333,14 @@ def main_loop_c3d2():
                         # if mininfo.score_wo_cst > kw.max_score_minimized:
                         continue
 
-                     tag = f'{os.path.basename(pdbpath)}_nres{nresasym}_cell{int(cell_spacing):03}_{aa}_{len(results):06}'
+                     tag = ''.join([
+                        f'_solv{int(solv_frac*100):0}%_',
+                        f'{os.path.basename(pdbpath)}',
+                        f'_nres{nresasym}',
+                        f'_cell{int(cell_spacing):03}_',
+                        f'{aa}_',
+                        f'{len(results):06}',
+                     ])
                      fn = kw.output_prefix + tag + '.pdb'
                      # print('dump intermediate', fn)
                      xtal_pose_min.dump_pdb(fn)
@@ -337,6 +349,13 @@ def main_loop_c3d2():
                      result = prepare_result(**vars(), **kw)
                      results.append(result)
       # rp.dump(results,rfname)  # not clustered
+
+   if not results:
+      print(f'{"":!^100}')
+      print('NO RESULTS!!!')
+      print(f'{"":!^100}')
+      print('DONE')
+      return
 
    # cluster
    scores = np.array([r.info.score_fa_rep for r in results])
