@@ -23,6 +23,7 @@ def default_cli_parser(parent=None, **kw):
    addarg('--chiresl_his1', type=float,                         default=3.0,                 help='resolution of scanning for his chi1')
    addarg('--chiresl_his2', type=float,                         default=8.0,                 help='resolution of scanning for his chi2')
    addarg('--clash_dis', type=float,                            default=3.3,                 help='distance below which atoms "clash"')
+   addarg('--cluster', action="store_true",                   default=False,               help='')
    addarg('--contact_dis', type=float,                          default=7.0,                 help='max CB-CB distance between residue "neighbors"')
    # addarg('--continue_from_checkpoints', action="store_true", default=False,               help='')
    addarg('--cst_ang_metal', type=float,                        default=109.47,              help='desired angle between metal liganding atoms')

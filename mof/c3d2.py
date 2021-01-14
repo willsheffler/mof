@@ -1,10 +1,54 @@
-import mof, rpxdock as rp, numpy as np, os, rpxdock.homog as hm, shutil
+import mof, rpxdock as rp, numpy as np, os, rpxdock.homog as hm, shutil, sys
 from mof.pyrosetta_init import rosetta, xform_pose, make_residue
 from mof.pyrosetta_init import (rosetta as r, rts, makelattice, addcst_dis, addcst_ang,
                                 addcst_dih, name2aid, printscores, get_sfxn)
 from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec
 from pyrosetta import AtomID
 import pyrosetta
+
+def print_options(kw):
+
+   print()
+   print('!' * 100)
+   print()
+   print('COMMAND LINE (maybe with whitespace changes):')
+   print()
+   print(' '.join(sys.argv))
+   print()
+   print('!' * 100)
+   print()
+
+   kw = kw.sub(inputs=None, timer=None)
+   longest_key = max(len(k) for k in kw) + 2
+   longest_val = max([
+      len(repr(v) if isinstance(v, (int, float, str, list)) else str(type(v)))
+      for v in kw.values()
+   ])
+   longest_line = 0
+   reprs = list()
+   for k, v in kw.items():
+      vstr = repr(v) if isinstance(v, (int, float, str, list)) else str(type(v))
+      sep1 = '.' * (longest_key - len(k))
+      sep2 = ' ' * (longest_val - len(vstr))
+      reprs.append((k, sep1, vstr, sep2))
+      linelen = len(str(k + sep1 + vstr))
+      longest_line = max(longest_line, linelen)
+
+   msg1 = '  THESE OPTION REJECT YOUR REALITY  '
+   msg2 = '  AND SUBSTITUTE THEIR OWN  '
+   sepline = '  !!         ' + ' ' * (3 + longest_line) + '  !!'
+   sepline = sepline + os.linesep + sepline
+   print()
+   print(f"  {'':!^{longest_line + 18}}")
+   print(f"  {msg1:!^{longest_line + 18}}")
+   print(f"  {msg2:!^{longest_line + 18}}")
+   print(f"  {'':!^{longest_line + 18}}")
+   print(sepline)
+   for k, sep1, vstr, sep2 in reprs:
+      print('  !!       ', k, sep1, vstr, sep2, '  !!')
+   print(sepline)
+   print(f"  {' END OF OPTIONS ':!^{longest_line + 18}}")
+   print()
 
 def print_nonzero_energies(sfxn, pose):
    for st in sfxn.get_nonzero_weighted_scoretypes():
@@ -28,11 +72,21 @@ def main_loop_c3d2():
    kw.timer = rp.Timer().start()
    if kw.test_run:
       kw = get_test_kw(kw)
+   print_options(kw)
 
    if kw.overwrite and os.path.exists(os.path.dirname(kw.output_prefix)):
       print(kw.output_prefix)
       shutil.rmtree(os.path.dirname(kw.output_prefix))
-   os.makedirs(os.path.dirname(kw.output_prefix) + '/clustered', exist_ok=True)
+   assert kw.output_prefix
+
+   outdir = os.path.dirname(kw.output_prefix)
+   if not outdir:
+      outdir = kw.output_prefix + '/'
+      # kw.output_prefix = kw.output_prefix + '\n' # this was a nice one!
+      kw.output_prefix = kw.output_prefix + '/' + kw.output_prefix
+
+   print(f'os.makedirs({outdir + "clustered/"}, exist_ok=True)')
+   os.makedirs(outdir + 'clustered/', exist_ok=True)
 
    if not kw.spacegroups:
       print('NO spacegroups specified (e.g. --spacegroups P23)')
@@ -58,6 +112,8 @@ def main_loop_c3d2():
 
    results = list()
    rfname = f'{kw.output_prefix}_results.pickle'
+   print('fname prefix:', kw.output_prefix)
+   print('result fname:', rfname)
 
    for ipdbpath, pdbpath in enumerate(kw.inputs):
 
@@ -302,6 +358,7 @@ def main_loop_c3d2():
                         print('     ', xspec.spacegroup, pdb_name, aa, 'Fail on solv_frac',
                               solv_frac)
                         continue
+                     else:
                         print('     ', xspec.spacegroup, pdb_name, aa, 'Win  on solv_frac',
                               solv_frac)
 
@@ -348,7 +405,10 @@ def main_loop_c3d2():
 
                      result = prepare_result(**vars(), **kw)
                      results.append(result)
-      # rp.dump(results,rfname)  # not clustered
+
+      if os.path.exists(rfname):
+         results = rp.load(rfname) + results
+      rp.dump(results, rfname)  # not clustered
 
    if not results:
       print(f'{"":!^100}')
@@ -361,25 +421,25 @@ def main_loop_c3d2():
    scores = np.array([r.info.score_fa_rep for r in results])
    sorder = np.argsort(scores)  # perm to sorted
 
-   print(f'{" CLUSTER ":#^100}')
+   clustcen = np.arange(len(scores), dtype=np.int)
+   if kw.cluster:
+      print(f'{" CLUSTER ":#^100}')
+      # crds sorted by score
+      crd = np.stack([r.info.bbcoords for r in results])
+      crd = crd[sorder].reshape(len(scores), -1)
+      nbbatm = (results[0].asym_pose_min.size() - 1) * 3
+      clustcen = rp.cluster.cookie_cutter(crd, kw.max_bb_redundancy * np.sqrt(nbbatm))
+      clustcen = sorder[clustcen]  # back to original order
+      results = [results[i] for i in clustcen]
+      kw.timer.checkpoint('filter_redundancy')
 
-   # crds sorted by score
-   crd = np.stack([r.info.bbcoords for r in results])
-   crd = crd[sorder].reshape(len(scores), -1)
-   nbbatm = (results[0].asym_pose_min.size() - 1) * 3
-
-   clustcen = rp.cluster.cookie_cutter(crd, kw.max_bb_redundancy * np.sqrt(nbbatm))
-   clustcen = sorder[clustcen]  # back to original order
-   results = [results[i] for i in clustcen]
-   kw.timer.checkpoint('filter_redundancy')
-
-   for iclust, r in enumerate(results):
-      outdir = kw.output_prefix + os.path.dirname(r.info.tag)
-      if not outdir: outdir = '.'
-      clust_fname = outdir + '/clustered/clust%06i_' % iclust + os.path.basename(
-         r.info.tag) + '.pdb'
-      # print("CLUST DUMP", r.info.tag, clust_fname)
-      r.asym_pose_min.dump_pdb(clust_fname)
+      for iclust, r in enumerate(results):
+         outdir = kw.output_prefix + os.path.dirname(r.info.tag)
+         if not outdir: outdir = '.'
+         clust_fname = outdir + '/clustered/clust%06i_' % iclust + os.path.basename(
+            r.info.tag) + '.pdb'
+         # print("CLUST DUMP", r.info.tag, clust_fname)
+         r.asym_pose_min.dump_pdb(clust_fname)
 
    # dump pdbs
    #   for i, result in enumerate(results):

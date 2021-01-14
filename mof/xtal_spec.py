@@ -86,7 +86,7 @@ _frames_files = {
 
 def get_xtal_spec(name):
    try:
-      return _xspec[name]
+      return _xspec[name.lower()]
    except KeyError:
       print(f'spacegroup {name} not implemented')
 
