@@ -1,0 +1,2 @@
+check local orig vs digs modified run
+see if same mem issues on local machine

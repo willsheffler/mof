@@ -39,24 +39,30 @@ aavol = dict(
 )
 
 def approx_solvent_fraction(pose, xspec, celldim=None):
-   # print('celldim', celldim)
-   seq = pose.sequence()
-   if r.core.pose.symmetry.is_symmetric(pose):
-      # print('nasym', nsym)
-      nasym = r.core.pose.symmetry.symm_info(pose).get_nres_subunit()
-      seq = seq[:nasym]
-   assert all(aa in aavol for aa in seq)
-   vol = xspec.nsubs * sum(aavol[_] for _ in seq)
+  # print('celldim', celldim)
+  seq = pose.sequence()
+  if r.core.pose.symmetry.is_symmetric(pose):
+    # print('nasym', nsym)
+    nasym = r.core.pose.symmetry.symm_info(pose).get_nres_subunit()
+    seq = seq[:nasym]
 
-   # for ir in range(1, nasym + 1):
-   # print(pose.residue(ir).name())
-   # vol += xspec.nsubs * aavol[pose.residue(ir).name()]
-   celldim = celldim if celldim else pose.pdb_info().crystinfo().A()
-   cellvol = celldim**3
+  # assert all(aa in aavol for aa in seq)
+  peptvol = r.core.scoring.packing.get_surf_vol(pose, 1.4).tot_vol
+  vol = xspec.nsubs * peptvol
 
-   # print(pose.pdb_info().crystinfo().A())
-   # print(seq, vol, celldim, cellvol)
-   # assert 0
-   solvfrac = max(0.0, 1.0 - vol / cellvol)
+  # vol = xspec.nsubs * sum(aavol[_] for _ in seq)
 
-   return solvfrac
+  # for ir in range(1, nasym + 1):
+  # print(pose.residue(ir).name())
+  # vol += xspec.nsubs * aavol[pose.residue(ir).name()]
+  celldim = celldim if celldim else pose.pdb_info().crystinfo().A()
+  cellvol = celldim**3
+
+  print(vol, celldim, cellvol, pose.size())
+
+  # print(pose.pdb_info().crystinfo().A())
+  # print(seq, vol, celldim, cellvol)
+  # assert 0
+  solvfrac = max(0.0, 1.0 - vol / cellvol)
+
+  return solvfrac
