@@ -9,6 +9,7 @@ from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec, xyzMatrix_do
 from pyrosetta.bindings.utility import bind_method
 from pyrosetta.rosetta.core.pack.rotamer_set import bb_independent_rotamers
 from pyrosetta.rosetta.core.conformation import Residue
+from mof.pyrosetta_init import rosetta, xform_pose, make_residue
 
 def extra_rotamers(rotamers, lb=0, ub=1, bs=10):
    ex = []
@@ -471,3 +472,41 @@ def hash_str_to_int(s):
       s = s.encode()
    buf = sha1(s).digest()[:8]
    return int(abs(np.frombuffer(buf, dtype="i8")[0]))
+
+def is_rosetta_stuff(k, v, d):
+   # if not isinstance(v, (int, str, float)):
+   # print('  ' * d, k, type(v))
+   if isinstance(v, r.core.pose.Pose):
+      # print('   ' * d, 'found a pose', k)
+      return True
+
+def strip_rosetta_content_from_results(kw):
+   for fn in kw.inputs:
+      r = rp.load(fn)
+      r.visit_remove_if(is_rosetta_stuff)
+      newfn = os.path.dirname(fn) + '/noposes_' + os.path.basename(fn)
+      print('dumping', newfn)
+      rp.dump(r, newfn)
+
+def align_cx_pose_to_z(pose, fname):
+   pose.dump_pdb(f'original.pdb')
+   b = rp.Body(pose)
+   # print(f'pose.size() {pose.size():7.3f}')
+   nasym = pose.size() // 3
+   x = (b.stub[nasym + 1]) @ np.linalg.inv(b.stub[1])
+   axis, ang = rp.homog.axis_angle_of(x)
+   if not np.allclose(ang, np.pi * 2 / 3, atol=0.04):
+      print("WARNING input not C3?", np.degrees(ang), fname)
+      return False
+   x = rp.homog.align_vector(axis, [0, 0, 1, 0])
+   x[:, 3] = x @ -b.com()
+   xform_pose(pose, x)
+   # print(axis, np.degrees(ang))
+   pose.dump_pdb(f'aligned.pdb')
+
+   return pose
+
+def intersect_line_plane(p0, n, l0, l):
+   l = hm.hnormalized(l)
+   d = hm.hdot(p0 - l0, n) / hm.hdot(l, n)
+   return l0 + l * d

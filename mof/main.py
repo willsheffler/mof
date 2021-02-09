@@ -1,7 +1,10 @@
 import sys, numpy as np, os, pickle, mof, xarray as xr, glob
 import rpxdock as rp
 from mof.pyrosetta_init import rosetta
-from mof.c3d2 import main_loop_c3d2
+
+# atfrom mof.c3d2 import main_loop
+from mof.c3c3 import main_loop
+
 from mof.rotamer_cloud import get_rotclouds
 
 # from concurrent.futures import ProcessPoolExecutor
@@ -295,7 +298,7 @@ def main():
    # print(x)
    # assert 0
    # main_single_res()
-   main_loop_c3d2()
+   main_loop()
 
 if __name__ == '__main__':
    main()

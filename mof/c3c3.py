@@ -7,7 +7,8 @@ from pyrosetta import AtomID
 def main_loop():
 
    kw = mof.app.options_setup(get_test_kw)
-   if kw.postprocess: return mof.app.postprocess(kw)
+   if kw.postprocess:
+      return mof.app.postprocess(kw)
 
    rotclouds = mof.rotamer_cloud.get_rotclouds(**kw)
 
@@ -65,9 +66,7 @@ def main_loop():
 
                for irot, rotframe in enumerate(rotframes):
                   lig_metal_axis = rotframe[:, 0]
-                  symaxis0 = hm.hrot(rotframe[:, 1], tetrahedral_angle / 2) @ lig_metal_axis
-                  symaxis0d = hm.hrot(lig_metal_axis, 120.0) @ symaxis0
-                  symaxis0d2 = hm.hrot(lig_metal_axis, 240.0) @ symaxis0
+                  symaxis0 = rotframe[:, 1]
 
                   rots_around_nezn = hm.xform_around_dof_for_vector_target_angle(
                      fix=pept_axis,
@@ -78,15 +77,8 @@ def main_loop():
 
                   for ibonddof, x in enumerate(rots_around_nezn):
                      symaxis = x @ symaxis0
-                     symaxisd = x @ symaxis0d
-                     symaxisd2 = x @ symaxis0d2
                      if (np.pi / 2 < hm.angle(pept_axis, symaxis)):
                         symaxis *= -1
-
-                     def line_plane_intesection(p0, n, l0, l):
-                        l = hm.hnormalized(l)
-                        d = hm.hdot(p0 - l0, n) / hm.hdot(l, n)
-                        return l0 + l * d
 
                      assert np.allclose(hm.angle_degrees(pept_axis, symaxis),
                                         hm.angle_degrees(xspec.axis1, xspec.axis2), atol=0.01)
@@ -108,7 +100,7 @@ def main_loop():
                      n = hm.hcross(xspec.axis1, xspec.orig1)
                      # p0 = xalign[:, 3]
                      p0 = xalign @ [0, 0, 0, 1]  # center of peptide
-                     isect = line_plane_intesection(p0, n, l0, l)
+                     isect = mof.util.intersect_line_plane(p0, n, l0, l)
                      xalign[:3, 3] -= isect[:3]  # why minus? huh
 
                      axis1_orig = hm.line_line_closest_points_pa(
@@ -139,8 +131,8 @@ def main_loop():
                         continue
 
                      symaxis = xalign @ symaxis
-                     symaxisd = xalign @ symaxisd
-                     symaxisd2 = xalign @ symaxisd2
+
+                     assert 0
 
                      ok1 = 0.03 > hm.line_angle(symaxisd, xspec.axis2d)
                      ok2 = 0.03 > hm.line_angle(symaxisd2, xspec.axis2d)
@@ -268,7 +260,7 @@ def get_test_kw(kw):
       print(f'{str(kw.inputs):!^80}')
       print(f'{"":!^80}')
 
-   kw.spacegroups = ['p23']
+   kw.spacegroups = ['p213']
    kw.output_prefix = '_mof_main_test_output' + '_'.join(kw.spacegroups) + '/'
    kw.scale_number_of_rotamers = 0.5
    kw.max_bb_redundancy = 2.0

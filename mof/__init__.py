@@ -1,4 +1,4 @@
-from mof import util, xtal_search, rotamer_cloud, xtal_spec, xtal_build, result, options, minimize, filters
+from mof import util, xtal_search, rotamer_cloud, xtal_spec, xtal_build, result, options, minimize, filters, app
 
 import numpy, ctypes
 if hasattr(numpy.__config__, 'mkl_info'):
