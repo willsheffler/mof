@@ -68,7 +68,10 @@ def default_cli_parser(parent=None, **kw):
   addarg('--sfxn_sterics_weights', type=str,                   default='sterics.wts',       help='clash checking score func wts file')
   addarg('--spacegroups', nargs='*', type=str,                 default=[],                  help='list of spacegroups')
   addarg('--sym_axes_angle_tolerance', type=float,             default=5.0,                 help='max deviation from crystal "magic angle"')
+  addarg('--bb_break_dist', type=float,             default=3.0)
 
+  addarg('--postprocess', action="store_true",                 default=False,               help='')
+  addarg('--strip_rosetta_content_from_results', action="store_true",                 default=False,               help='')
 
   # yapf: enable
 

@@ -39,6 +39,7 @@ aavol = dict(
 )
 
 def approx_solvent_fraction(pose, xspec, celldim=None):
+
   # print('celldim', celldim)
   seq = pose.sequence()
   if r.core.pose.symmetry.is_symmetric(pose):
@@ -48,6 +49,7 @@ def approx_solvent_fraction(pose, xspec, celldim=None):
 
   # assert all(aa in aavol for aa in seq)
   peptvol = r.core.scoring.packing.get_surf_vol(pose, 1.4).tot_vol
+  print(f'peptvol {peptvol}')
   vol = xspec.nsubs * peptvol
 
   # vol = xspec.nsubs * sum(aavol[_] for _ in seq)
@@ -58,7 +60,7 @@ def approx_solvent_fraction(pose, xspec, celldim=None):
   celldim = celldim if celldim else pose.pdb_info().crystinfo().A()
   cellvol = celldim**3
 
-  print(vol, celldim, cellvol, pose.size())
+  print('approx_solvent_fraction:', vol, celldim, cellvol, pose.size())
 
   # print(pose.pdb_info().crystinfo().A())
   # print(seq, vol, celldim, cellvol)

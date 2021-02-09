@@ -6,61 +6,48 @@ from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec
 from pyrosetta import AtomID
 import pyrosetta
 
-def print_options(kw):
+def postprocess_c3d2(kw):
+  # print(kw.inputs)
+  results = list()
+  for fn in kw.inputs:
+    print(fn)
+    results += rp.load(fn)
+  print(len(results))
 
-  print()
-  print('!' * 100)
-  print()
-  print('COMMAND LINE (maybe with whitespace changes):')
-  print()
-  print(' '.join(sys.argv))
-  print()
-  print('!' * 100)
-  print()
+  assert 0
 
-  kw = kw.sub(inputs=None, timer=None)
-  longest_key = max(len(k) for k in kw) + 2
-  longest_val = max([
-     len(repr(v) if isinstance(v, (int, float, str, list)) else str(type(v)))
-     for v in kw.values()
-  ])
-  longest_line = 0
-  reprs = list()
-  for k, v in kw.items():
-    vstr = repr(v) if isinstance(v, (int, float, str, list)) else str(type(v))
-    sep1 = '.' * (longest_key - len(k))
-    sep2 = ' ' * (longest_val - len(vstr))
-    reprs.append((k, sep1, vstr, sep2))
-    linelen = len(str(k + sep1 + vstr))
-    longest_line = max(longest_line, linelen)
+def is_rosetta_stuff(k, v, d):
+  # if not isinstance(v, (int, str, float)):
+  # print('  ' * d, k, type(v))
+  if isinstance(v, r.core.pose.Pose):
+    # print('   ' * d, 'found a pose', k)
+    return True
 
-  msg1 = '  THESE OPTION REJECT YOUR REALITY  '
-  msg2 = '  AND SUBSTITUTE THEIR OWN  '
-  sepline = '  !!         ' + ' ' * (3 + longest_line) + '  !!'
-  sepline = sepline + os.linesep + sepline
-  print()
-  print(f"  {'':!^{longest_line + 18}}")
-  print(f"  {msg1:!^{longest_line + 18}}")
-  print(f"  {msg2:!^{longest_line + 18}}")
-  print(f"  {'':!^{longest_line + 18}}")
-  print(sepline)
-  for k, sep1, vstr, sep2 in reprs:
-    print('  !!       ', k, sep1, vstr, sep2, '  !!')
-  print(sepline)
-  print(f"  {' END OF OPTIONS ':!^{longest_line + 18}}")
-  print()
+def strip_rosetta_content_from_results(kw):
+  for fn in kw.inputs:
+    r = rp.load(fn)
+    r.visit_remove_if(is_rosetta_stuff)
+    newfn = os.path.dirname(fn) + '/noposes_' + os.path.basename(fn)
+    print('dumping', newfn)
+    rp.dump(r, newfn)
 
-def print_nonzero_energies(sfxn, pose):
-  for st in sfxn.get_nonzero_weighted_scoretypes():
-    print(st, pose.energies().total_energies()[st])
+def align_cx_pose_to_z(pose, fname):
+  pose.dump_pdb(f'original.pdb')
+  b = rp.Body(pose)
+  # print(f'pose.size() {pose.size():7.3f}')
+  nasym = pose.size() // 3
+  x = (b.stub[nasym + 1]) @ np.linalg.inv(b.stub[1])
+  axis, ang = rp.homog.axis_angle_of(x)
+  if not np.allclose(ang, np.pi * 2 / 3, atol=0.04):
+    print("WARNING input not C3?", np.degrees(ang), fname)
+    return False
+  x = rp.homog.align_vector(axis, [0, 0, 1, 0])
+  x[:, 3] = x @ -b.com()
+  xform_pose(pose, x)
+  # print(axis, np.degrees(ang))
+  pose.dump_pdb(f'aligned.pdb')
 
-_bestscores = dict()
-
-def record_nonzero_energies(sfxn, pose):
-  for st in sfxn.get_nonzero_weighted_scoretypes():
-    if st not in _bestscores:
-      _bestscores[st] = pose.energies().total_energies()[st]
-    _bestscores[st] = min(_bestscores[st], pose.energies().total_energies()[st])
+  return pose
 
 def main_loop_c3d2():
 
@@ -69,6 +56,9 @@ def main_loop_c3d2():
   # os.system('rm test_*.pdb')
 
   kw = mof.options.get_cli_args()
+  if kw.postprocess: return postprocess_c3d2(kw)
+  if kw.strip_rosetta_content_from_results: return strip_rosetta_content_from_results(kw)
+
   kw.timer = rp.Timer().start()
   if kw.test_run:
     kw = get_test_kw(kw)
@@ -118,6 +108,9 @@ def main_loop_c3d2():
   for ipdbpath, pdbpath in enumerate(kw.inputs):
 
     pose = rosetta.core.import_pose.pose_from_file(pdbpath)
+    if not align_cx_pose_to_z(pose, pdbpath):
+      continue
+
     rpxbody = rp.Body(pose)
 
     print()
@@ -367,6 +360,7 @@ def main_loop_c3d2():
                   if not np.isnan(v): peptvol += v
               peptvol /= syminfo.subunits()
               peptvol *= xspec.nsubs
+              print(f'peptvol {peptvol}')
 
               # solv_frac = mof.filters.approx_solvent_fraction(xtal_pose, xspec, cell_spacing)
               solv_frac = max(0.0, 1.0 - peptvol / cell_spacing**3)
@@ -388,7 +382,9 @@ def main_loop_c3d2():
                  xtal_pose,
                  **kw,
               )
-              if xtal_pose_min is None: continue
+              if xtal_pose_min is None:
+                print(f'min failed, xtal_pose_min is None')
+                continue
 
               print(f'{len(results):5} {iaa:3} {ires:3} {irot:5} {ibonddof:2} ang axisd',
                     f'{hm.angle_degrees(symaxisd, xspec.axis2d):7.3}',
@@ -400,6 +396,7 @@ def main_loop_c3d2():
 
               if mininfo.score_fa_rep > kw.max_score_minimized / 3 * nresasym:
                 # if mininfo.score_wo_cst > kw.max_score_minimized:
+                print(f'score_fa_rep fail {mininfo.score_fa_rep}')
                 continue
 
               tag = ''.join([
@@ -424,6 +421,7 @@ def main_loop_c3d2():
               result.ibonddof = ibonddof
               results.append(result)
 
+              print(f'{f" DUMP PDB {fn} ":!^100}')
               rp.dump(result, fn[:-4] + '.pickle')
               xtal_pose_min.dump_pdb(fn)
 
@@ -602,15 +600,22 @@ def minimize_oneres(sfxn, xspec, pose, debug=False, **kw):
   for isub in range(1, syminfo.subunits()):
     othern = pose.residue((isub + 0) * nresasym + 1).xyz('N')
     otherc = pose.residue((isub + 1) * nresasym - 1).xyz('C')
-    if nxyz.distance(otherc) < 3.0: cac = (isub + 1) * nresasym - 1
-    if cxyz.distance(othern) < 3.0: nac = (isub + 0) * nresasym + 1
+    if nxyz.distance(otherc) < kw.bb_break_dist: cac = (isub + 1) * nresasym - 1
+    if cxyz.distance(othern) < kw.bb_break_dist: nac = (isub + 0) * nresasym + 1
   if not (nac and cac):
     print('backbone is weird? probably subunits too broken')
     print(syminfo.subunits())
-    print('nac', nac, othern)
-    print('cac', cac, otherc)
+    print('nac   ', nac)
+    print('othern', othern)
+    print('cac   ', cac)
+    print('otherc', otherc)
     # assert 0
+
+    pose.dump_pdb(f'backbone_is_weird.pdb')
+    assert 0
     return None, None
+  else:
+    print(f'backbone is not weird')
   if debug: print('peptide connection 1:', cac, beg)
   if debug: print('peptide_connection 2:', end, nac)
   # pose.dump_pdb('check_cuts.pdb')
@@ -933,3 +938,59 @@ _lblmap = dict(
    HISD='lJ',
    DHISD='dJ',
 )
+
+def print_options(kw):
+
+  print()
+  print('!' * 100)
+  print()
+  print('COMMAND LINE (maybe with whitespace changes):')
+  print()
+  print(' '.join(sys.argv))
+  print()
+  print('!' * 100)
+  print()
+
+  kw = kw.sub(inputs=None, timer=None)
+  longest_key = max(len(k) for k in kw) + 2
+  longest_val = max([
+     len(repr(v) if isinstance(v, (int, float, str, list)) else str(type(v)))
+     for v in kw.values()
+  ])
+  longest_line = 0
+  reprs = list()
+  for k, v in kw.items():
+    vstr = repr(v) if isinstance(v, (int, float, str, list)) else str(type(v))
+    sep1 = '.' * (longest_key - len(k))
+    sep2 = ' ' * (longest_val - len(vstr))
+    reprs.append((k, sep1, vstr, sep2))
+    linelen = len(str(k + sep1 + vstr))
+    longest_line = max(longest_line, linelen)
+
+  msg1 = '  THESE OPTION REJECT YOUR REALITY  '
+  msg2 = '  AND SUBSTITUTE THEIR OWN  '
+  sepline = '  !!         ' + ' ' * (3 + longest_line) + '  !!'
+  sepline = sepline + os.linesep + sepline
+  print()
+  print(f"  {'':!^{longest_line + 18}}")
+  print(f"  {msg1:!^{longest_line + 18}}")
+  print(f"  {msg2:!^{longest_line + 18}}")
+  print(f"  {'':!^{longest_line + 18}}")
+  print(sepline)
+  for k, sep1, vstr, sep2 in reprs:
+    print('  !!       ', k, sep1, vstr, sep2, '  !!')
+  print(sepline)
+  print(f"  {' END OF OPTIONS ':!^{longest_line + 18}}")
+  print()
+
+def print_nonzero_energies(sfxn, pose):
+  for st in sfxn.get_nonzero_weighted_scoretypes():
+    print(st, pose.energies().total_energies()[st])
+
+_bestscores = dict()
+
+def record_nonzero_energies(sfxn, pose):
+  for st in sfxn.get_nonzero_weighted_scoretypes():
+    if st not in _bestscores:
+      _bestscores[st] = pose.energies().total_energies()[st]
+    _bestscores[st] = min(_bestscores[st], pose.energies().total_energies()[st])
