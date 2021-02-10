@@ -581,8 +581,81 @@ def postprocess(kw):
    # print(kw.inputs)
    results = list()
    for fn in kw.inputs:
+      result = rp.load(fn)
+      # print(result)
+      # assert 0
+      result.info.sequence = result.info.sequence.replace(':protein_cutpoint_upper', '')
+      # print(result.seq)
+      results.append(result)
+   # print(f'loaded {len(results)} results')
+   results = mof.result.results_to_xarray(results)
+   # print(results.sequence)
+   # print(len(results.sequence))
+   results = results.sortby('score')
+
+   # print(sum(results.score < 20) / len(results.score))
+   # print(results)
+   # print(results.bbcoords.shape)
+
+   for seq, group in results.groupby('sequence'):
+      tag = seq.replace(',ZN', '').replace(',', '-')
+      # print(seq, len(group.score))
+      coords = group.bbcoords.data.reshape(len(group.score), -1)
+      nres = float(group.nres.data[0])
+      # print
+      clustcen, clustid = rp.cluster.cookie_cutter(coords, kw.max_bb_redundancy * nres)
+      # print(np.sort(np.bincount(clustid))[-5:])
+      # print(clustcen)
+      # print(np.unique(clustcen))
+      seqresults = group.sel(result=clustcen)
+      seqresults.attrs.clear()
+
+      # print(len(group.result), type(group), type(group.result), type(group.score),
+      # type(group.pdb_fname))
+      print(
+         f'{tag:30} ngroup {len(group.score):4} ncoord {len(coords):4} nclust {len(clustcen):4} nuniq {len(np.unique(clustcen)):4} clustresult {len(seqresults.result):4}'
+      )
+
+      seqdir = 'cluster/' + tag + '/'
+      os.makedirs(seqdir, exist_ok=True)
+      rp.dump(seqresults, seqdir + tag + '_results.pickle')
+      # print(group.pdb_fname[:10])
+      # print('groupsize', len(group.score), len(group.result))
+      # print('npdbs', len(seqresults.pdb_fname))
+
+      for i, fn in enumerate(seqresults.pdb_fname.data):
+         clustsize = np.sum(clustid == clustcen[i])
+         origfname = kw.input_path + '/' + os.path.basename(fn)
+         shutil.copyfile(origfname, seqdir + 'nb%04i_' % clustsize + os.path.basename(fn))
+
+# works?
+def _cluster_bb_dataset(ds):
+   # scores = np.array([r.info.score_fa_rep for r in results])
+   # sorder = np.argsort(scores)  # perm to sorted
+
+   clustcen = np.arange(len(scores), dtype=np.int)
+
+   print(f'{" CLUSTER ":#^100}')
+   # crds sorted by score
+   crd = np.stack([r.info.bbcoords for r in results])
+   crd = crd[sorder].reshape(len(scores), -1)
+   nbbatm = (results[0].asym_pose_min.size() - 1) * 3
+   clustcen = rp.cluster.cookie_cutter(crd, kw.max_bb_redundancy * np.sqrt(nbbatm))
+   clustcen = sorder[clustcen]  # back to original order
+   results = [results[i] for i in clustcen]
+   kw.timer.checkpoint('filter_redundancy')
+
+   for iclust, r in enumerate(results):
+      outdir = kw.output_prefix + os.path.dirname(r.info.tag)
+      if not outdir: outdir = '.'
+      clust_fname = outdir + '/clustered/clust%06i_' % iclust + os.path.basename(
+         r.info.tag) + '.pdb'
+      # print("CLUST DUMP", r.info.tag, clust_fname)
+      r.asym_pose_min.dump_pdb(clust_fname)
+
+   # print(kw.inputs)
+   results = list()
+   for fn in kw.inputs:
       print(fn)
       results += rp.load(fn)
    print(len(results))
-
-   assert 0
