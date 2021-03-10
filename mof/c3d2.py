@@ -7,7 +7,9 @@ from pyrosetta import AtomID
 def main_loop():
 
    kw = mof.app.options_setup(get_test_kw)
-   if kw.postprocess: return mof.app.postprocess(kw)
+
+   if kw.postprocess:
+      return mof.app.postprocess(kw)
 
    rotclouds = mof.rotamer_cloud.get_rotclouds(**kw)
 

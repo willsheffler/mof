@@ -1,6 +1,6 @@
 import numpy as np, rpxdock as rp, copy, os, mof
 from mof import util
-from mof.pyrosetta_init import make_1res_pose, get_sfxn, rVec, xform_pose
+from mof.pyrosetta_init import make_1res_pose, get_sfxn, rVec, xform_pose, Pose
 from abc import ABC, abstractmethod
 """
 CONCERNS:
@@ -32,7 +32,7 @@ def get_rotclouds(**kw):
 
    cache_file = kw.rotcloud_cache + '/%i.pickle' % ident
    if os.path.exists(cache_file):
-      lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ = rp.util.load(cache_file)
+      lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ, lB = rp.util.load(cache_file)
    else:
       print('building rotamer clouds')
       chi_range = lambda resl: np.arange(-180, 180, resl)
@@ -63,29 +63,31 @@ def get_rotclouds(**kw):
       # dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0)
       # dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0)
 
-      lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
-      lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
-      lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
-      lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
-      lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
-      dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
-      dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
-      dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
-      dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
-      dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      # lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
+      # lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
+      # lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
+      # lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      # lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      # dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
+      # dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
+      # dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
+      # dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      # dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
 
-      rp.util.dump([lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ], cache_file)
+      lB = mof.rotamer_cloud.RotCloudBPY(grid=chi_his, max_dun_score=3.0)
 
-   return dict(lC=lC, lD=lD, lE=lE, lH=lH, lJ=lJ, dC=dC, dD=dD, dE=dE, dH=dH, dJ=dJ)
+      rp.util.dump([lC, lD, lE, lH, lJ, dC, dD, dE, dH, dJ, lB], cache_file)
+
+   return dict(lC=lC, lD=lD, lE=lE, lH=lH, lJ=lJ, dC=dC, dD=dD, dE=dE, dH=dH, dJ=dJ, lB=lB)
 
 class RotamerCloud(ABC):
    """holds transforms for a set of rotamers positioned at the origin"""
    def __init__(
-         self,
-         amino_acid,
-         rotchi=None,
-         max_dun_score=4.0,
-         grid=None,
+      self,
+      amino_acid,
+      rotchi=None,
+      max_dun_score=4.0,
+      grid=None,
    ):
       super(RotamerCloud, self).__init__()
       self.amino_acid = amino_acid
@@ -118,6 +120,7 @@ class RotamerCloud(ABC):
          if dun > max_dun_score: continue
          # print('rot', irot, dun, chis)
          for iframe, frame in enumerate(self.get_effector_frame(pose.residue(1))):
+            print(irot, iframe, chis)
             self.rotbin.append(irot)
             self.rotchi.append(chis)
             self.rotscore.append(dun)
@@ -176,8 +179,8 @@ class RotamerCloud(ABC):
                line = F(ia=ia, ir=1, an=res.atom_name(ia), rn=res.name3(), c='A', xyz=xyz)
                out.write(line)
             orig = self.rotframes[irot, :, 3]
-            x = orig + 2 * self.rotframes[irot, :, 0]
-            y = orig + 2 * self.rotframes[irot, :, 1]
+            x = orig + 1 * self.rotframes[irot, :, 0]
+            y = orig + 1 * self.rotframes[irot, :, 1]
             z = orig + 2 * self.rotframes[irot, :, 2]
             orig = position @ orig
             x = position @ x
@@ -258,6 +261,28 @@ class RotCloudCysZN(RotamerCloud):
          orig[i] = orig[i] * 2.32 + sg[i]
       frame = rp.motif.frames.stub_from_points(orig, sg, cb).squeeze()
       return [frame]
+
+class RotCloudBPY(RotamerCloud):
+   def __init__(self, *args, **kw):
+      RotamerCloud.__init__(self, 'BPY', *args, **kw)
+
+   def get_effector_frame(self, residue):
+      ne1 = residue.xyz('NE1')
+      nn1 = residue.xyz('NN1')
+      fe = residue.xyz('FE')
+
+      x = rp.homog.align_vectors([1, 0, 0], [0, 1, 0], ne1 - fe, nn1 - fe)
+      x[:3, 3] = fe.x, fe.y, fe.z
+      x1 = x @ rp.homog.align_vector([1, -1, 1], [0, 0, 1])
+      x2 = x @ rp.homog.align_vector([1, -1, -1], [0, 0, 1])
+
+      # pose = Pose()
+      # pose.append_residue_by_jump(residue, 1)
+      # pose.dump_pdb('rotcloud1.pdb')
+      # xform_pose(pose, np.linalg.inv(x))
+      # pose.dump_pdb('rotcloud2.pdb')
+
+      return [x1]  #, x2]
 
 class RotCloudDCysZN(RotCloudCysZN):
    def __init__(self, *args, **kw):

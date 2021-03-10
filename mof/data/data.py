@@ -17,6 +17,7 @@ params = rp.Bunch(
    HZD=str(os.path.join(motifs_dir, "HZD.params")),
    HZ4=str(os.path.join(motifs_dir, "HZ4.params")),
    VZN=str(os.path.join(params_dir, "VZN.params")),
+   BPY=str(os.path.join(params_dir, "BPY.params")),
 )
 
 all_params_files = " ".join(params.values())

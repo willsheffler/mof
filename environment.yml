@@ -1,4 +1,4 @@
-name: mof2
+name: mof
 channels:
  - defaults
  - conda-forge
@@ -17,4 +17,5 @@ dependencies:
  - yapf
  - pytest-sugar
  - pytest-xdist
-
+ - pip:
+   - rmsd

@@ -2,7 +2,7 @@ import sys, numpy as np, os, pickle, mof, xarray as xr, glob
 import rpxdock as rp
 from mof.pyrosetta_init import rosetta
 
-# atfrom mof.c3d2 import main_loop
+# from mof.c3d2 import main_loop
 from mof.c3c3 import main_loop
 
 from mof.rotamer_cloud import get_rotclouds

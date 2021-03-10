@@ -7,15 +7,15 @@ class XtalSpec:
 
 class XtalSpecCC(XtalSpec):
    def __init__(
-         self,
-         spacegroup,
-         nfold1,
-         axis1,
-         orig1,
-         nfold2,
-         axis2,
-         orig2,
-         nsubs,
+      self,
+      spacegroup,
+      nfold1,
+      axis1,
+      orig1,
+      nfold2,
+      axis2,
+      orig2,
+      nsubs,
    ):
 
       self.spacegroup = spacegroup
@@ -43,16 +43,16 @@ class XtalSpecCC(XtalSpec):
 
 class XtalSpecCD(XtalSpec):
    def __init__(
-         self,
-         spacegroup,
-         nfold1,
-         axis1,
-         orig1,
-         nfold2,
-         axis2,
-         orig2,
-         axis2d,
-         nsubs,
+      self,
+      spacegroup,
+      nfold1,
+      axis1,
+      orig1,
+      nfold2,
+      axis2,
+      orig2,
+      axis2d,
+      nsubs,
    ):
       self.spacegroup = spacegroup
       self.nfold1 = int(nfold1)
@@ -106,11 +106,11 @@ _xspec = dict(
    p213=XtalSpecCC(
       'P 21 3',
       3,
-      [-1, +1, +1],
-      [+0., +0, +0.5],
-      3,
       [+1, +1, +1],
       [0, 0, 0],
+      3,
+      [-1, +1, +1],
+      [+0., +0, +0.5],
       12,
    ),
    i213=XtalSpecCC(
