@@ -63,16 +63,16 @@ def get_rotclouds(**kw):
       # dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0)
       # dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0)
 
-      # lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
-      # lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
-      # lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
-      # lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
-      # lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
-      # dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
-      # dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
-      # dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
-      # dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
-      # dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      lC = mof.rotamer_cloud.RotCloudCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
+      lD = mof.rotamer_cloud.RotCloudAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
+      lE = mof.rotamer_cloud.RotCloudGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
+      lH = mof.rotamer_cloud.RotCloudHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      lJ = mof.rotamer_cloud.RotCloudHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      dC = mof.rotamer_cloud.RotCloudDCysZN(grid=chi_cys, max_dun_score=4.0 * 1.5)
+      dD = mof.rotamer_cloud.RotCloudDAspZN(grid=chi_asp, max_dun_score=5.0 * 1.5)
+      dE = mof.rotamer_cloud.RotCloudDGluZN(grid=chi_glu, max_dun_score=5.0 * 1.5)
+      dH = mof.rotamer_cloud.RotCloudDHisZN(grid=chi_his, max_dun_score=5.0 * 1.5)
+      dJ = mof.rotamer_cloud.RotCloudDHisdZN(grid=chi_his, max_dun_score=5.0 * 1.5)
 
       lB = mof.rotamer_cloud.RotCloudBPY(grid=chi_his, max_dun_score=3.0)
 
@@ -160,12 +160,12 @@ class RotamerCloud(ABC):
    def get_effector_frame(self, residue):
       pass
 
-   def dump_pdb(self, path=None, position=np.eye(4), which=None):
+   def dump_pdb(self, path=None, position=np.eye(4), which=None, append=False):
       if path is None: path = self.amino_acid + '.pdb'
       res = self.make_pose1res().residue(1)
       natm = res.natoms()
       F = rp.io.pdb_format_atom
-      with open(path, 'w') as out:
+      with open(path, 'a' if append else 'w') as out:
          loopey_doodle = enumerate(self.rotchi)
          if which is not None:
             loopey_doodle = ((which, self.rotchi[which]), )
@@ -179,9 +179,9 @@ class RotamerCloud(ABC):
                line = F(ia=ia, ir=1, an=res.atom_name(ia), rn=res.name3(), c='A', xyz=xyz)
                out.write(line)
             orig = self.rotframes[irot, :, 3]
-            x = orig + 1 * self.rotframes[irot, :, 0]
-            y = orig + 1 * self.rotframes[irot, :, 1]
-            z = orig + 2 * self.rotframes[irot, :, 2]
+            x = orig + 0.5 * self.rotframes[irot, :, 0]
+            y = orig + 0.5 * self.rotframes[irot, :, 1]
+            z = orig + 0.5 * self.rotframes[irot, :, 2]
             orig = position @ orig
             x = position @ x
             y = position @ y
@@ -192,6 +192,7 @@ class RotamerCloud(ABC):
             # print(y)
             # print(z)
             # assert 0
+            # phide ev; remove hydro; show lin; unbond name XDIR, name YDIR; unbond name ZDIR, name YDIR; unbond name XDIR, name ZDIR; show sti, not name ORIG+XDIR+YDIR+ZDIR
             out.write(F(ia=natm + 1, ir=1, an='ORIG', rn='END', c='B', xyz=orig))
             out.write(F(ia=natm + 2, ir=1, an='XDIR', rn='END', c='B', xyz=x, elem='O'))
             out.write(F(ia=natm + 3, ir=1, an='YDIR', rn='END', c='B', xyz=y, elem='CL'))

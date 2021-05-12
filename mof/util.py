@@ -488,22 +488,27 @@ def strip_rosetta_content_from_results(kw):
       print('dumping', newfn)
       rp.dump(r, newfn)
 
-def align_cx_pose_to_z(pose, fname):
-   pose.dump_pdb(f'original.pdb')
+def align_cx_pose_to_z(pose, fname, nfold=3):
+   # pose.dump_pdb(f'original.pdb')
    b = rp.Body(pose)
    # print(f'pose.size() {pose.size():7.3f}')
-   nasym = pose.size() // 3
-   x = (b.stub[nasym + 1]) @ np.linalg.inv(b.stub[1])
-   axis, ang = rp.homog.axis_angle_of(x)
-   if not np.allclose(ang, np.pi * 2 / 3, atol=0.04):
-      print("WARNING input not C3?", np.degrees(ang), fname)
-      return False
+   nasym = pose.size() // nfold
+   axis, ang, err = None, 999, 999
+   for ir0 in range(nasym):
+      x = (b.stub[nasym + 2]) @ np.linalg.inv(b.stub[2])
+      axis0, ang0 = rp.homog.axis_angle_of(x)
+      err0 = abs(ang - np.pi * 2 / nfold)
+      if err0 < err:
+         axis, ang, err = axis0, ang0, err0
+   print('align_cx_pose_to_z', ang, err, axis)
+   if err > 1.0:
+      print('align_cx_pose_to_z failed on', fname)
+
    x = rp.homog.align_vector(axis, [0, 0, 1, 0])
    x[:, 3] = x @ -b.com()
    xform_pose(pose, x)
    # print(axis, np.degrees(ang))
-   pose.dump_pdb(f'aligned.pdb')
-
+   # pose.dump_pdb(f'aligned.pdb')
    return pose
 
 def intersect_line_plane(p0, n, l0, l):

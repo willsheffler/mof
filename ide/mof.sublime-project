@@ -28,6 +28,10 @@
          "shell_cmd": "cd $folder; CC='ccache gcc' PYTHONPATH=. python mof/main.py &> sublime_build.log; if ls *.pdb; then pymol *.pdb; fi"
       },
       {
+         "name": "gm210315",
+         "shell_cmd": "cd $folder/GM; python gm_210322.py &> ../sublime_build.log"
+      },
+      {
          "name": "info_examples",
          "shell_cmd": "cd $folder; PYTHONPATH=. python examples/info_examples.py /home/sheffler/debug/mof/doubleres2/scaffolds_c3/9res/mofdock__concatenated_info.pickle &> sublime_build.log"
       }

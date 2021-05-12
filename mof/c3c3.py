@@ -1,6 +1,6 @@
 import mof, os, numpy as np, rpxdock as rp, rpxdock.homog as hm
 from mof.pyrosetta_init import (rosetta, makelattice, get_sfxn, xform_pose, make_residue)
-from mof.util import align_cx_pose_to_z
+from mof.util import align_cx_pose_to_z, variant_remove
 from pyrosetta.rosetta.numeric import xyzVector_double_t as xyzVec
 from pyrosetta import AtomID, get_score_function
 
@@ -10,8 +10,6 @@ def main_loop():
 
    if kw.postprocess:
       return mof.app.postprocess(kw)
-
-   rotclouds = mof.rotamer_cloud.get_rotclouds(**kw)
 
    pept_axis = np.array([0, 0, 1, 0])
    pept_orig = np.array([0, 0, 0, 1])
@@ -23,13 +21,26 @@ def main_loop():
 
    sfxn = get_score_function()
 
+   results = list()
+
    for ipdbpath, pdbpath in enumerate(kw.inputs):
 
       pose = rosetta.core.import_pose.pose_from_file(pdbpath)
       if not align_cx_pose_to_z(pose, pdbpath):
-         continue
-
+         print(f"WARNING failed align_cx_pose_to_z: {pdbpath}")
+      variant_remove(pose)
       rpxbody = rp.Body(pose)
+
+      rotclouds = mof.rotamer_cloud.get_rotclouds(**kw)
+
+      # pose.dump_pdb('rotcloud_all_super_scaffold.pdb')
+      # append = False
+      # for ires in (1, 2):
+      #    for k, v in rotclouds.items():
+      #       if k != 'lB': continue
+      #       v.dump_pdb('rotcloud_all_super.pdb', append=append, position=rpxbody.stub[ires])
+      #       append = True
+
       minscore = 9e9
 
       print()
@@ -111,7 +122,7 @@ def main_loop():
                   cell_spacing = abs(isect[2] / xspec.orig2[2])
                   if cell_spacing < 10 or cell_spacing > 25:
                      continue
-                  print('cell_spacing', cell_spacing)
+                  # print('cell_spacing', cell_spacing)
 
                   # xalign[:3, 3] += 5 * xspec.orig2[:3]
                   # print(xspec.orig2)
@@ -124,7 +135,7 @@ def main_loop():
                   ci.A(cell_spacing)  # cell dimensions
                   ci.B(cell_spacing)
                   ci.C(cell_spacing)
-                  ci.alpha(90)  # cell angles
+                  ci.alpha(90)  # cell angles n
                   ci.beta(90)
                   ci.gamma(90)
                   ci.spacegroup(xspec.spacegroup)  # sace group
@@ -145,159 +156,55 @@ def main_loop():
                      rosetta.core.scoring.symmetry.SymmetricEnergies())
 
                   sc = sfxn.score(sympose)
-                  print('score', sc)
+                  # print('score', sc)
                   minscore = min(minscore, sc)
-                  if sc > 10000:
+                  if sc > 7000:
                      continue
 
+                  syminfo = rosetta.core.pose.symmetry.symmetry_info(sympose)
+                  surfvol = rosetta.core.scoring.packing.get_surf_vol(sympose, 1.4)
+                  peptvol = 0.0
+                  for ir in range(1, syminfo.get_nres_subunit() + 1):
+                     res = sympose.residue(ir)
+                     ir = ir + 1  # rosetta numbering
+                     for ia in range(1, res.natoms() + 1):
+                        v = surfvol.vol[AtomID(ia, ir)]
+                        if not np.isnan(v): peptvol += v
+                  # peptvol /= syminfo.subunits()
+                  peptvol *= xspec.nsubs
+                  print(f'peptvol {peptvol} {peptvol / cell_spacing**3}')
+                  solv_frac = max(0.0, 1.0 - peptvol / cell_spacing**3)
+
+                  tag = ''.join([
+                     f'_cell{int(cell_spacing):03}_',
+                     f'_sc{int(sc):05}_',
+                     f'_solv{int(solv_frac*100):02}_',
+                     f'{os.path.basename(pdbpath)}',
+                     f'_nres{nresasym}',
+                     f'{aa}_',
+                     f'{len(results):06}',
+                  ])
+                  fn = kw.output_prefix + tag + '.pdb'
+
+                  print('HIT %7.3f' % sc, outasym)
+                  results.append([sc, cell_spacing, sympose])
                   if True:
-                     outasym.dump_pdb('test_asym.pdb')
-                     outpose0.dump_pdb('xalign.pdb')
-                     xform_pose(outpose0,
-                                hm.hrot(xalign @ ligsymaxis, 120, xalign @ orig_metal_pos))
-                     outpose0.dump_pdb('xalign2.pdb')
-                     xform_pose(outpose0,
-                                hm.hrot(xalign @ ligsymaxis, 120, xalign @ orig_metal_pos))
-                     outpose0.dump_pdb('xalign3.pdb')
-                     assert 0
+                     outasym.dump_pdb(fn)
+                     # outpose0.dump_pdb('xalign.pdb')
+                     # xform_pose(outpose0,
+                     # hm.hrot(xalign @ ligsymaxis, 120, xalign @ orig_metal_pos))
+                     # outpose0.dump_pdb('xalign2.pdb')
+                     # xform_pose(outpose0,
+                     # hm.hrot(xalign @ ligsymaxis, 120, xalign @ orig_metal_pos))
+                     # outpose0.dump_pdb('xalign3.pdb')
+                     # assert 0
 
                   # get cell cell_spacing
                   # dump cryst1 pdb
                   # clash check
       print('minscore', minscore)
 
-   #
-   #                     for n, d in zip(axis1_orig[:3], xspec.orig1[:3]):
-   #                        if d != 0: cell_spacing1 = n / d
-   #                     for n, d in zip(axis2_orig[:3], xspec.orig2[:3]):
-   #                        if d != 0: cell_spacing2 = n / d
-   #                     cellerr = (abs(cell_spacing1 - cell_spacing2) /
-   #                                (abs(cell_spacing1) + abs(cell_spacing2)))
-   #
-   #                     if cell_spacing1 * cell_spacing2 < 0 or cellerr > 0.04:
-   #                        continue
-   #                     # cell_spacing = 0.5 * cell_spacing1 + 0.5 * cell_spacing2
-   #                     cell_spacing = cell_spacing2  # keep d2 center intact
-   #                     # print('cell_spacing', cell_spacing1, cell_spacing2, cellerr)
-   #
-   #                     # what to do about negative values??
-   #                     cell_spacing = abs(cell_spacing)
-   #                     if abs(cell_spacing) < 10:
-   #                        continue
-   #
-   #                     ligsymaxis = xalign @ ligsymaxis
-   #                     symaxisd = xalign @ symaxisd
-   #                     symaxisd2 = xalign @ symaxisd2
-   #
-   #                     ok1 = 0.03 > hm.line_angle(symaxisd, xspec.axis2d)
-   #                     ok2 = 0.03 > hm.line_angle(symaxisd2, xspec.axis2d)
-   #
-   #                     if not (ok1 or ok2):
-   #                        continue
-   #                     if ok2:
-   #                        symaxisd, symaxisd2 = symaxisd2, symaxisd
-   #                     if np.pi / 2 < hm.angle(symaxisd, xspec.axis2d):
-   #                        symaxisd = -symaxisd
-   #
-   #                     xyzmetal = xalign @ orig_metal_pos
-   #                     frames1 = [
-   #                        hm.hrot(xspec.axis1, 120, xspec.orig1 * cell_spacing),
-   #                        hm.hrot(xspec.axis1, 240, xspec.orig1 * cell_spacing),
-   #                        np.array(hm.hrot(ligsymaxis, 180, xyzmetal) @ xalign),
-   #                        np.array(hm.hrot(symaxisd, 180, xyzmetal) @ xalign),
-   #                        np.array(hm.hrot(symaxisd2, 180, xyzmetal) @ xalign),
-   #                     ]
-   #                     if np.any(rpxbody.intersect(rpxbody, xalign, frames1, mindis=kw.clash_dis)):
-   #                        continue
-   #
-   #                     outpose0 = mof.util.mutate_one_res(
-   #                        pose,
-   #                        ires + 1,
-   #                        aa,
-   #                        rotcloud.rotchi[irot],
-   #                        sym_num,
-   #                     )
-   #
-   #                     #
-   #
-   #                     assert pose.size() % xspec.nfold1 == 0
-   #                     nres_asym = pose.size() // xspec.nfold1
-   #                     xtal_pose = rosetta.protocols.grafting.return_region(outpose0, 1, nres_asym)
-   #                     mof.app.set_cell_params(xtal_pose, xspec, cell_spacing)
-   #
-   #                     #
-   #                     pdb_name = os.path.basename(pdbpath)
-   #
-   #                     lattice_pose = xtal_pose.clone()
-   #                     makelattice(lattice_pose)
-   #                     syminfo = rosetta.core.pose.symmetry.symmetry_info(lattice_pose)
-   #                     surfvol = rosetta.core.scoring.packing.get_surf_vol(lattice_pose, 1.4)
-   #                     peptvol = 0.0
-   #                     for ir, r in enumerate(lattice_pose.residues):
-   #                        ir = ir + 1  # rosetta numbering
-   #                        for ia in range(1, r.natoms() + 1):
-   #                           v = surfvol.vol[AtomID(ia, ir)]
-   #                           if not np.isnan(v): peptvol += v
-   #                     peptvol /= syminfo.subunits()
-   #                     peptvol *= xspec.nsubs
-   #                     print(f'peptvol {peptvol}')
-   #
-   #                     # solv_frac = mof.filters.approx_solvent_fraction(xtal_pose, xspec, cell_spacing)
-   #                     solv_frac = max(0.0, 1.0 - peptvol / cell_spacing**3)
-   #                     if kw.max_solv_frac < solv_frac:
-   #                        print('     ', xspec.spacegroup, pdb_name, aa, 'Fail on solv_frac',
-   #                              solv_frac)
-   #                        continue
-   #                     else:
-   #                        print('     ', xspec.spacegroup, pdb_name, aa, 'Win  on solv_frac',
-   #                              solv_frac)
-   #
-   #                     #
-   #
-   #                     xform_pose(xtal_pose, xalign)
-   #                     mof.app.addZN(xtal_pose, xyzmetal)
-   #
-   #                     sfxn_min = get_sfxn('minimize')
-   #                     xtal_pose_min, mininfo = mof.app.minimize_oneres(
-   #                        sfxn_min, xspec, xtal_pose, **kw)
-   #                     if xtal_pose_min is None:
-   #                        print(f'min failed, xtal_pose_min is None')
-   #                        continue
-   #
-   #                     print(f'{len(results):5} {iaa:3} {ires:3} {irot:5} {ibonddof:2} ang axisd',
-   #                           f'{hm.angle_degrees(symaxisd, xspec.axis2d):7.3}',
-   #                           f'{hm.angle_degrees(symaxisd2, xspec.axis2d):7.3}',
-   #                           f'{cell_spacing:7.3}', f'farep {mininfo.score_fa_rep:7.3}',
-   #                           f'solv {solv_frac:5.3}')
-   #
-   #                     if mininfo.score_fa_rep > kw.max_score_minimized / 3 * nresasym:
-   #                        # if mininfo.score_wo_cst > kw.max_score_minimized:
-   #                        print(f'score_fa_rep fail {mininfo.score_fa_rep}')
-   #                        continue
-   #
-   #                     tag = ''.join([
-   #                        f'_solv{int(solv_frac*100):02}_',
-   #                        f'{os.path.basename(pdbpath)}',
-   #                        f'_nres{nresasym}',
-   #                        f'_cell{int(cell_spacing):03}_',
-   #                        f'{aa}_',
-   #                        f'{len(results):06}',
-   #                     ])
-   #                     fn = kw.output_prefix + tag + '.pdb'
-   #
-   #                     result = mof.app.prepare_result(**vars(), **kw)
-   #                     result.pdb_fname = fn
-   #                     result.spacegroup = spacegroup
-   #                     result.aa = aa
-   #                     result.seq = xtal_pose_min.sequence()
-   #                     result.ires = ires
-   #                     result.irot = irot
-   #                     result.ibonddof = ibonddof
-   #                     results.append(result)
-   #
-   #                     print(f'{f" DUMP PDB {fn} ":!^100}')
-   #                     rp.dump(result, fn[:-4] + '.pickle')
-   #                     xtal_pose_min.dump_pdb(fn)
+   results.sort
 
    if not results:
       print(f'{"":!^100}')
@@ -305,11 +212,40 @@ def main_loop():
       print(f'{"":!^100}')
       print('DONE')
 
-   return
+   return results
+
+validated_c3 = [
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/PDD-xtal-structure.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/Baby-xtal-structure.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.100.2_0010_LETO.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.10.8_0004_DERRICK.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.1.4_0004_LONDRILUN.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.1.7_0006_0001_0001.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.18.7_0007_0001_0001_NIDORAN.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.20.7_0002_DARLA.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.25.7_0005_0001_0001_UTRE.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.2.7_0003_0001_0001_EKANS.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.28.8_0005_0001_0001_POULUNO.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.34.3_0008_0001_VENI.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.43.10_0002_0001_0001.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.60.1_0002_0001_JEAN.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.6.4_0009_MELANGE.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.80.1_0003_VECHE.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/c.94.1_0008_0001_DEWEY.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/naep_c.11.10_0002_0001_0001_BLACK.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/naep_c.18.6_0009_0001_0001_0001.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/naep_c.42.3_0008_0001_0001_0001.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/naep_c.71.1_0002_0001_0001_0001.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/pd_c.59.2_0005_0001_0001_CATERPIE.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/result00008_0000883_0_0003_SHISO.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/Sage-xtal-structure.pdb',
+   '/home/sheffler/debug/mof/peptides/NMR_Xtal_validated_designs/C3/Sporty-xtal-structure.pdb',
+]
 
 def get_test_kw(kw):
    if not kw.inputs:
       kw.inputs = ['mof/data/peptides/c.2.6_0001.pdb']
+      # kw.inputs = validated_c3
       print(f'{"":!^80}')
       print(f'{"no pdb list input, using test only_one":!^80}')
       print(f'{str(kw.inputs):!^80}')
@@ -319,7 +255,7 @@ def get_test_kw(kw):
    kw.aa_labels = ['BPY']
    kw.output_prefix = '_mof_test_c3c3' + '_'.join(kw.spacegroups) + '/'
    kw.angle_err_tolerance = 3
-   kw.scale_number_of_rotamers = 0.5
+   kw.scale_number_of_rotamers = 0.25
    kw.max_bb_redundancy = 2.0
    kw.max_dun_score = 4.0
    kw.clash_dis = 3.3

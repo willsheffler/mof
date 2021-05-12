@@ -36,8 +36,8 @@ def options_setup(get_test_kw=None, verbose=True):
    if not basename.strip():
       kw.output_prefix += 'mof'
 
-   print(f'os.makedirs({outdir + "clustered/"}, exist_ok=True)')
-   os.makedirs(outdir + 'clustered/', exist_ok=True)
+   print(f'os.makedirs({outdir + "/clustered/"}, exist_ok=True)')
+   os.makedirs(outdir + '/clustered/', exist_ok=True)
 
    if not kw.spacegroups:
       print('NO spacegroups specified (e.g. --spacegroups P23)')
