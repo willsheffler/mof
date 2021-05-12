@@ -1,0 +1,78 @@
+HEADER                                            xx-MMM-xx                     
+CRYST1   23.455   23.455   23.455  90.00  90.00  90.00 P 21 3                   
+ATOM      1  N   GLY A   1       0.417   3.928   6.877  1.00  0.00           N  
+ATOM      2  CA  GLY A   1       0.543   2.479   6.769  1.00  0.00           C  
+ATOM      3  C   GLY A   1       1.924   2.015   7.211  1.00  0.00           C  
+ATOM      4  O   GLY A   1       2.244   0.828   7.136  1.00  0.00           O  
+ATOM      5 OVU1 GLY A   1       0.524   4.720   5.815  1.00  0.00           X  
+ATOM      6  H   GLY A   1       0.246   4.411   7.736  1.00  0.00           H  
+ATOM      7 1HA  GLY A   1      -0.220   2.001   7.382  1.00  0.00           H  
+ATOM      8 2HA  GLY A   1       0.365   2.176   5.738  1.00  0.00           H  
+ATOM      9  N   BPY A   2       2.742   2.954   7.673  1.00  0.00           N  
+ATOM     10  CA  BPY A   2       3.927   2.624   8.455  1.00  0.00           C  
+ATOM     11  C   BPY A   2       5.092   2.238   7.552  1.00  0.00           C  
+ATOM     12  O   BPY A   2       6.055   2.993   7.410  1.00  0.00           O  
+ATOM     13  CB  BPY A   2       3.520   1.389   9.221  1.00  0.00           C  
+ATOM     14  CG  BPY A   2       2.994   1.617  10.695  1.00  0.00           C  
+ATOM     15  CD1 BPY A   2       1.636   1.440  10.915  1.00  0.00           C  
+ATOM     16  NE1 BPY A   2       1.088   1.550  12.141  1.00  0.00           N  
+ATOM     17  CZ  BPY A   2       1.863   1.892  13.177  1.00  0.00           C  
+ATOM     18  CE2 BPY A   2       3.230   2.085  13.017  1.00  0.00           C  
+ATOM     19  CD2 BPY A   2       3.790   1.932  11.761  1.00  0.00           C  
+ATOM     20  CM  BPY A   2       1.177   2.052  14.484  1.00  0.00           C  
+ATOM     21  CN2 BPY A   2       1.828   2.494  15.629  1.00  0.00           C  
+ATOM     22  CO2 BPY A   2       1.118   2.617  16.803  1.00  0.00           C  
+ATOM     23  CP  BPY A   2      -0.211   2.290  16.832  1.00  0.00           C  
+ATOM     24  CO1 BPY A   2      -0.792   1.847  15.663  1.00  0.00           C  
+ATOM     25  NN1 BPY A   2      -0.130   1.737  14.503  1.00  0.00           N  
+ATOM     26  FE  BPY A   2      -0.925   0.925  12.659  1.00  0.00           X  
+ATOM     27  H   BPY A   2       2.471   3.888   7.439  1.00  0.00           H  
+ATOM     28  HA  BPY A   2       4.239   3.469   9.068  1.00  0.00           H  
+ATOM     29  1HB BPY A   2       4.387   0.731   9.276  1.00  0.00           H  
+ATOM     30  2HB BPY A   2       2.673   0.974   8.673  1.00  0.00           H  
+ATOM     31  HD1 BPY A   2       0.993   1.227  10.213  1.00  0.00           H  
+ATOM     32  HE2 BPY A   2       3.815   2.287  13.734  1.00  0.00           H  
+ATOM     33  HD2 BPY A   2       4.717   2.033  11.533  1.00  0.00           H  
+ATOM     34  HN2 BPY A   2       2.833   2.728  15.571  1.00  0.00           H  
+ATOM     35  HO2 BPY A   2       1.705   3.017  17.549  1.00  0.00           H  
+ATOM     36  HP  BPY A   2      -0.840   2.382  17.629  1.00  0.00           H  
+ATOM     37  HO1 BPY A   2      -1.741   1.670  15.666  1.00  0.00           H  
+ATOM     38  N   GLY A   3       4.999   1.061   6.944  1.00  0.00           N  
+ATOM     39  CA  GLY A   3       6.102   0.512   6.165  1.00  0.00           C  
+ATOM     40  C   GLY A   3       5.842   0.646   4.670  1.00  0.00           C  
+ATOM     41  O   GLY A   3       4.741   1.003   4.252  1.00  0.00           O  
+ATOM     42  H   GLY A   3       4.121   0.600   7.069  1.00  0.00           H  
+ATOM     43 1HA  GLY A   3       7.025   1.030   6.425  1.00  0.00           H  
+ATOM     44 2HA  GLY A   3       6.241  -0.539   6.420  1.00  0.00           H  
+TER                                                                             
+CONECT    3    9                                                                
+CONECT    9    3   10   27                                                      
+CONECT   10    9   11   13   28                                                 
+CONECT   11   10   12   38                                                      
+CONECT   12   11                                                                
+CONECT   13   10   14   29   30                                                 
+CONECT   14   13   15   19                                                      
+CONECT   15   14   16   31                                                      
+CONECT   16   15   17   26                                                      
+CONECT   17   16   18   20                                                      
+CONECT   18   17   19   32                                                      
+CONECT   19   14   18   33                                                      
+CONECT   20   17   21   25                                                      
+CONECT   21   20   22   34                                                      
+CONECT   22   21   23   35                                                      
+CONECT   23   22   24   36                                                      
+CONECT   24   23   25   37                                                      
+CONECT   25   20   24                                                           
+CONECT   26   16                                                                
+CONECT   27    9                                                                
+CONECT   28   10                                                                
+CONECT   29   13                                                                
+CONECT   30   13                                                                
+CONECT   31   15                                                                
+CONECT   32   18                                                                
+CONECT   33   19                                                                
+CONECT   34   21                                                                
+CONECT   35   22                                                                
+CONECT   36   23                                                                
+CONECT   37   24                                                                
+CONECT   38   11                                                                
